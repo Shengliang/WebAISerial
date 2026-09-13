@@ -1,0 +1,6 @@
+{
+  "name": "Embedded Firmware Serial Console & Debugger",
+  "description": "Web terminal and serial console for embedded firmware debugging with real-time streaming, adjustable baud rates, hex dump view, multi-device WebSerial support, script automation, encrypted offline logging, and cloud synchronization.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
