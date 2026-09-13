@@ -138,3 +138,77 @@ export interface ExportOptions {
   includeHex: boolean;
   compress?: boolean;
 }
+
+export type BootOutcome =
+  | 'BOOT_SUCCESS'
+  | 'CRASH_PANIC'
+  | 'WATCHDOG_RESET'
+  | 'HARDFAULT'
+  | 'BOOT_TIMEOUT'
+  | 'IN_PROGRESS';
+
+export interface FirmwareImageMeta {
+  name: string;
+  size: number;
+  type: string;
+  hashMd5?: string;
+  hashSha256?: string;
+  targetAddress: string;
+  versionTag?: string;
+  uploadTimestamp: number;
+}
+
+export interface TaskSessionRecord {
+  id: string; // Session ID e.g. SESS-2026-0913-0042
+  taskId: string; // Task ID e.g. TASK-FW-8492
+  sessionName: string;
+  timestamp: number;
+  dateKey: string; // YYYY-MM-DD
+  monthKey: string; // YYYY-MM for 60-month querying
+  deviceId: string;
+  deviceName: string;
+  baudRate: number;
+  firmwareImage?: FirmwareImageMeta;
+  powerCycleMethod: 'dtr_rts_pulse' | 'command_reset' | 'manual_hardware';
+  bootOutcome: BootOutcome;
+  durationMs: number;
+  logCount: number;
+  errorCount: number;
+  warnCount: number;
+  rawLogSize: number;
+  logs: LogEntry[];
+  engineerName: string;
+  notes?: string;
+}
+
+export interface TaskSummary {
+  taskId: string;
+  taskName: string;
+  createdDate: number;
+  lastSessionDate: number;
+  totalSessions: number;
+  passedSessions: number;
+  failedSessions: number;
+}
+
+export interface StorageQuotaInfo {
+  usageBytes: number;
+  quotaBytes: number;
+  usagePercent: number;
+  totalSavedSessions: number;
+  estimated60MonthCapacitySessions: number;
+  isPersistent: boolean;
+}
+
+export interface FlashTransferState {
+  status: 'idle' | 'preparing' | 'transferring' | 'rebooting' | 'capturing' | 'completed' | 'failed';
+  bytesTransferred: number;
+  totalBytes: number;
+  progressPercent: number;
+  speedBytesSec: number;
+  etaSeconds: number;
+  activeBlock: number;
+  totalBlocks: number;
+  phaseMessage: string;
+  error?: string;
+}

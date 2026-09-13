@@ -1,22 +1,26 @@
 import React from 'react';
 import {
   Activity,
+  Archive,
   BookOpen,
   Cloud,
   CloudOff,
   Cpu,
+  Database,
   Download,
   FileCode2,
   HardDrive,
   Keyboard,
   Lock,
   Plus,
+  Power,
   RefreshCw,
   Terminal,
   Unlock,
   Users,
   X,
   Columns,
+  Zap,
 } from 'lucide-react';
 import { SerialDevice, UserProfile } from '../types';
 import { AppSyncState, AVAILABLE_USERS } from '../utils/syncManager';
@@ -38,6 +42,10 @@ interface HeaderProps {
   onOpenExport: () => void;
   onOpenDocs: () => void;
   onOpenShortcuts: () => void;
+  onOpenFlasher: () => void;
+  onOpenArchive: () => void;
+  activeTaskId?: string;
+  activeSessionId?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -57,6 +65,10 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenExport,
   onOpenDocs,
   onOpenShortcuts,
+  onOpenFlasher,
+  onOpenArchive,
+  activeTaskId = 'TASK-FW-2026-0913',
+  activeSessionId = 'SESS-0042',
 }) => {
   const [userDropdownOpen, setUserDropdownOpen] = React.useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
@@ -147,6 +159,26 @@ export const Header: React.FC<HeaderProps> = ({
               <Unlock className="w-3.5 h-3.5 text-cyan-400" />
             )}
             <span className="hidden md:inline">Vault</span>
+          </button>
+
+          {/* Flash & Reboot Workflow Button */}
+          <button
+            onClick={onOpenFlasher}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-gradient-to-r from-amber-600 to-cyan-600 hover:from-amber-500 hover:to-cyan-500 text-white shadow transition"
+            title="Download Image over serial -> Power Cycle -> Capture Boot Log"
+          >
+            <Power className="w-3.5 h-3.5" />
+            <span>Flash &amp; Reboot</span>
+          </button>
+
+          {/* 60-Month IndexedDB Archive Button */}
+          <button
+            onClick={onOpenArchive}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-950/80 hover:bg-indigo-900/90 text-indigo-300 border border-indigo-700/70 transition shadow"
+            title="IndexedDB 60-Month Session Archive &amp; SQLite Exporter"
+          >
+            <Database className="w-3.5 h-3.5 text-indigo-400" />
+            <span className="hidden sm:inline">60-Mo Archive</span>
           </button>
 
           {/* Analytics Button */}
@@ -318,8 +350,20 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
-        {/* Multi-Device Split View Toggle */}
+        {/* Multi-Device Split View Toggle & Active Task Indicator */}
         <div className="flex items-center gap-2 pl-2">
+          {/* Active Task & Session Indicator */}
+          <button
+            onClick={onOpenArchive}
+            className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-900 border border-slate-700 text-xs font-mono hover:border-slate-500 transition"
+            title="Current Task & Session context (Click to browse 60-month IndexedDB archive)"
+          >
+            <span className="text-slate-400">Task:</span>
+            <span className="text-cyan-300 font-bold">{activeTaskId}</span>
+            <span className="text-slate-600">|</span>
+            <span className="text-amber-400">{activeSessionId}</span>
+          </button>
+
           {devices.length > 1 && (
             <button
               onClick={onToggleSplitView}

@@ -27,6 +27,8 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
     {
       category: 'Views & Modals',
       items: [
+        { key: 'Ctrl + Shift + F', desc: 'Download Image over serial -> Power Cycle -> Capture Boot Log' },
+        { key: 'Ctrl + Shift + D', desc: 'Open Chrome IndexedDB 60-Month Session Archive & SQLite Exporter' },
         { key: 'Ctrl + Shift + H', desc: 'Toggle Canonical Hex Dump view mode' },
         { key: 'Ctrl + Shift + A', desc: 'Open Real-Time Session Analytics' },
         { key: 'Ctrl + Shift + S', desc: 'Open Script Automation Suite' },

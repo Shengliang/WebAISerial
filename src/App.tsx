@@ -9,10 +9,12 @@ import { AnalyticsDashboardModal } from './components/AnalyticsDashboardModal';
 import { CommandInputBar } from './components/CommandInputBar';
 import { DeviceConnectionBar } from './components/DeviceConnectionBar';
 import { ExportModal } from './components/ExportModal';
+import { FirmwareFlasherModal } from './components/FirmwareFlasherModal';
 import { Header } from './components/Header';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { MacroManagerModal } from './components/MacroManagerModal';
 import { ScriptAutomationModal } from './components/ScriptAutomationModal';
+import { SessionArchiveModal } from './components/SessionArchiveModal';
 import { SyncStatusModal } from './components/SyncStatusModal';
 import { TerminalView } from './components/TerminalView';
 import { DEFAULT_MACROS } from './data/defaultMacros';
@@ -23,6 +25,7 @@ import {
   LogLevel,
   SerialDevice,
   SessionAnalytics,
+  TaskSessionRecord,
   UserProfile,
 } from './types';
 import { parseHexInput } from './utils/hexFormatter';
@@ -76,6 +79,12 @@ export default function App() {
   const [isDocsOpen, setIsDocsOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isMacroManagerOpen, setIsMacroManagerOpen] = useState(false);
+  const [isFlasherOpen, setIsFlasherOpen] = useState(false);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+
+  // Active Task & Session Tracking for Daily Firmware Download & Boot Runs
+  const [activeTaskId, setActiveTaskId] = useState('TASK-FW-2026-0913');
+  const [activeSessionId, setActiveSessionId] = useState('SESS-0042');
 
   // Session Analytics tracking
   const [sessionAnalytics, setSessionAnalytics] = useState<SessionAnalytics>({
@@ -211,6 +220,16 @@ export default function App() {
         e.preventDefault();
         setIsExportOpen(prev => !prev);
       }
+      // Ctrl+Shift+F: Flash & Reboot
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setIsFlasherOpen(prev => !prev);
+      }
+      // Ctrl+Shift+D: 60-Mo Archive Explorer
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        setIsArchiveOpen(prev => !prev);
+      }
       // Ctrl+P: Pause
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'p') {
         e.preventDefault();
@@ -240,6 +259,8 @@ export default function App() {
         setIsDocsOpen(false);
         setIsShortcutsOpen(false);
         setIsMacroManagerOpen(false);
+        setIsFlasherOpen(false);
+        setIsArchiveOpen(false);
       }
     };
 
@@ -388,6 +409,10 @@ export default function App() {
         onOpenExport={() => setIsExportOpen(true)}
         onOpenDocs={() => setIsDocsOpen(true)}
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
+        onOpenFlasher={() => setIsFlasherOpen(true)}
+        onOpenArchive={() => setIsArchiveOpen(true)}
+        activeTaskId={activeTaskId}
+        activeSessionId={activeSessionId}
       />
 
       {/* Main Terminal Viewport Area */}
@@ -403,6 +428,7 @@ export default function App() {
                   onConnect={handleConnect}
                   onDisconnect={handleDisconnect}
                   onToggleSignal={handleToggleSignal}
+                  onOpenFlasher={() => setIsFlasherOpen(true)}
                 />
                 <div className="flex-1 min-h-0">
                   <TerminalView
@@ -426,6 +452,7 @@ export default function App() {
                 onConnect={handleConnect}
                 onDisconnect={handleDisconnect}
                 onToggleSignal={handleToggleSignal}
+                onOpenFlasher={() => setIsFlasherOpen(true)}
               />
             )}
             <div className="flex-1 min-h-0">
@@ -472,6 +499,7 @@ export default function App() {
         logs={logs}
         devices={devices}
         sessionAnalytics={sessionAnalytics}
+        onOpenArchive={() => setIsArchiveOpen(true)}
       />
 
       <SyncStatusModal
@@ -497,6 +525,30 @@ export default function App() {
         onSaveMacros={newMacros => {
           setMacros(newMacros);
           syncManager.recordOfflineChange('macro');
+        }}
+      />
+
+      {/* Daily Firmware Image Downloader & Power Cycle Reboot Modal */}
+      <FirmwareFlasherModal
+        isOpen={isFlasherOpen}
+        onClose={() => setIsFlasherOpen(false)}
+        activeDevice={activeDevice}
+        onSessionCaptured={(session: TaskSessionRecord) => {
+          setActiveTaskId(session.taskId);
+          setActiveSessionId(session.id);
+          setLogs(prev => [...prev, ...session.logs]);
+        }}
+      />
+
+      {/* IndexedDB 60-Month Session Archive & SQLite/Disk Exporter Modal */}
+      <SessionArchiveModal
+        isOpen={isArchiveOpen}
+        onClose={() => setIsArchiveOpen(false)}
+        onSelectSessionForTerminal={(session: TaskSessionRecord) => {
+          setActiveTaskId(session.taskId);
+          setActiveSessionId(session.id);
+          setLogs(session.logs);
+          setIsArchiveOpen(false);
         }}
       />
     </div>

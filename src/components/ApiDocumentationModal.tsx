@@ -3,14 +3,17 @@ import {
   BookOpen,
   Cable,
   Code2,
+  Database,
   FileCode2,
   HardDrive,
   Key,
   Layers,
+  Power,
   Server,
   Terminal,
   Wifi,
   X,
+  Zap,
 } from 'lucide-react';
 
 interface ApiDocumentationModalProps {
@@ -23,8 +26,8 @@ export const ApiDocumentationModal: React.FC<ApiDocumentationModalProps> = ({
   onClose,
 }) => {
   const [activeTab, setActiveTab] = useState<
-    'webserial' | 'protocol' | 'scripting' | 'rest' | 'offline_crypto'
-  >('webserial');
+    'webserial' | 'protocol' | 'firmware_reboot' | '60mo_storage' | 'scripting' | 'rest' | 'offline_crypto'
+  >('firmware_reboot');
 
   if (!isOpen) return null;
 
@@ -39,10 +42,10 @@ export const ApiDocumentationModal: React.FC<ApiDocumentationModalProps> = ({
             </div>
             <div>
               <h2 className="font-semibold text-base text-slate-100">
-                Hardware, API Integration & Offline Logging Documentation
+                Hardware, API Integration &amp; Offline Logging Documentation
               </h2>
               <p className="text-xs text-slate-400">
-                Developer guides for WebSerial USB access, automation DSL, REST sync endpoints, and AES-GCM vault
+                Firmware download workflow, 60-month IndexedDB retention, SQLite export, and WebSerial API
               </p>
             </div>
           </div>
@@ -57,6 +60,30 @@ export const ApiDocumentationModal: React.FC<ApiDocumentationModalProps> = ({
         {/* Tab Navigation */}
         <div className="flex items-center gap-1 px-4 py-2 border-b border-slate-800 bg-slate-950/40 overflow-x-auto no-scrollbar text-xs">
           <button
+            onClick={() => setActiveTab('firmware_reboot')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition whitespace-nowrap ${
+              activeTab === 'firmware_reboot'
+                ? 'bg-amber-950/60 text-amber-300 font-medium border border-amber-800'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Power className="w-3.5 h-3.5 text-amber-400" />
+            <span>Firmware Download &amp; Power Cycle</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('60mo_storage')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition whitespace-nowrap ${
+              activeTab === '60mo_storage'
+                ? 'bg-amber-950/60 text-amber-300 font-medium border border-amber-800'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Database className="w-3.5 h-3.5 text-indigo-400" />
+            <span>60-Month IndexedDB &amp; SQLite</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('webserial')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition whitespace-nowrap ${
               activeTab === 'webserial'
@@ -65,7 +92,7 @@ export const ApiDocumentationModal: React.FC<ApiDocumentationModalProps> = ({
             }`}
           >
             <Cable className="w-3.5 h-3.5" />
-            <span>WebSerial API & Hardware</span>
+            <span>WebSerial API &amp; Hardware</span>
           </button>
 
           <button
@@ -77,7 +104,7 @@ export const ApiDocumentationModal: React.FC<ApiDocumentationModalProps> = ({
             }`}
           >
             <Terminal className="w-3.5 h-3.5" />
-            <span>UART Framing & Reset Lines</span>
+            <span>UART Framing &amp; Pins</span>
           </button>
 
           <button
@@ -89,7 +116,7 @@ export const ApiDocumentationModal: React.FC<ApiDocumentationModalProps> = ({
             }`}
           >
             <FileCode2 className="w-3.5 h-3.5" />
-            <span>Scripting Engine (DSL)</span>
+            <span>Scripting Engine</span>
           </button>
 
           <button
@@ -101,7 +128,7 @@ export const ApiDocumentationModal: React.FC<ApiDocumentationModalProps> = ({
             }`}
           >
             <Server className="w-3.5 h-3.5" />
-            <span>Cloud REST Sync API</span>
+            <span>Cloud REST Sync</span>
           </button>
 
           <button
@@ -113,12 +140,110 @@ export const ApiDocumentationModal: React.FC<ApiDocumentationModalProps> = ({
             }`}
           >
             <HardDrive className="w-3.5 h-3.5" />
-            <span>Encrypted Offline Vault</span>
+            <span>Encrypted Vault</span>
           </button>
         </div>
 
         {/* Tab Content */}
         <div className="flex-1 overflow-y-auto p-5 text-xs leading-relaxed space-y-4 font-sans">
+          {activeTab === 'firmware_reboot' && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-amber-400 flex items-center gap-1.5">
+                <Power className="w-4 h-4" />
+                Daily Firmware Image Download &amp; Power Cycle Reboot Workflow
+              </h3>
+              <p className="text-slate-300">
+                Embedded firmware engineers routinely repeat this core daily cycle during bench testing and regression validation:
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-slate-950 p-3.5 rounded-lg border border-slate-800 space-y-1">
+                  <div className="flex items-center gap-2 text-cyan-400 font-semibold text-xs">
+                    <span className="w-5 h-5 rounded-full bg-cyan-950 flex items-center justify-center border border-cyan-800">1</span>
+                    <span>Download Image</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Firmware binaries (.bin, .hex, .elf) are transferred in framed serial chunks over the UART link at selected baud rate (up to 921,600 bps).
+                  </p>
+                </div>
+
+                <div className="bg-slate-950 p-3.5 rounded-lg border border-slate-800 space-y-1">
+                  <div className="flex items-center gap-2 text-amber-400 font-semibold text-xs">
+                    <span className="w-5 h-5 rounded-full bg-amber-950 flex items-center justify-center border border-amber-800">2</span>
+                    <span>Power Cycle Reboot</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Automated strobe pulses DTR/RTS hardware lines to reset EN/GPIO0 pins or sends software reset commands to initiate clean MCU reboot.
+                  </p>
+                </div>
+
+                <div className="bg-slate-950 p-3.5 rounded-lg border border-slate-800 space-y-1">
+                  <div className="flex items-center gap-2 text-emerald-400 font-semibold text-xs">
+                    <span className="w-5 h-5 rounded-full bg-emerald-950 flex items-center justify-center border border-emerald-800">3</span>
+                    <span>Capture Console Output</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Bootloader logs, heap allocation, FreeRTOS task starts, and panic traces are captured and categorized (Success, Panic, Watchdog, Fault).
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-slate-950 p-3.5 rounded-lg border border-slate-800 space-y-1.5">
+                <h4 className="font-semibold text-slate-200">Automatic Session Attribution</h4>
+                <p className="text-slate-400 text-xs">
+                  Every boot run is automatically tagged with a reference <code className="text-cyan-300 font-mono">taskId</code> (e.g. JIRA ticket or issue tag) and an incremental <code className="text-amber-300 font-mono">sessionId</code>, creating a traceable audit record in IndexedDB for long-term regression analysis.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === '60mo_storage' && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-indigo-400 flex items-center gap-1.5">
+                <Database className="w-4 h-4" />
+                60-Month (5-Year) IndexedDB Retention &amp; SQLite Exporters
+              </h3>
+              <p className="text-slate-300">
+                Designed to satisfy the high-volume retention requirement of saving ~100 log sessions per day over a 60-month (5-year) testing span:
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono text-xs">
+                <div className="bg-slate-950 p-3.5 rounded-lg border border-slate-800 space-y-2">
+                  <span className="text-emerald-400 font-bold font-sans block">Storage Math &amp; Scale</span>
+                  <div className="space-y-1 text-slate-400 text-[11px]">
+                    <div>Daily Sessions: <strong>100 sessions / day</strong></div>
+                    <div>60-Month Duration: <strong>1,825 days (~60 months)</strong></div>
+                    <div>Total Sessions: <strong>~182,500 session records</strong></div>
+                    <div>Est. Storage Footprint: <strong>~450 MB - 1.2 GB</strong></div>
+                    <div>Chrome Quota: <strong>Typically 40 GB - 120 GB</strong></div>
+                    <div className="text-emerald-300 font-sans mt-1">Easily accommodated within browser IndexedDB!</div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-950 p-3.5 rounded-lg border border-slate-800 space-y-2">
+                  <span className="text-cyan-400 font-bold font-sans block">Eviction Protection</span>
+                  <p className="font-sans text-[11px] text-slate-400">
+                    By invoking <code className="text-cyan-300 font-mono">navigator.storage.persist()</code>, the app registers with Chrome as a "persistent" origin. This prevents the browser's LRU cache cleaner from ever evicting stored firmware logs.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-slate-950 p-3.5 rounded-lg border border-slate-800 space-y-2">
+                <h4 className="font-semibold text-slate-200">Export Capabilities:</h4>
+                <ul className="list-disc pl-5 space-y-1.5 text-slate-400">
+                  <li>
+                    <strong className="text-slate-200">SQLite 3 Database Dump (.sqlite.sql):</strong> Generates ready-to-run DDL and DML scripts containing structured tables for <code className="text-cyan-300 font-mono">firmware_tasks</code>, <code className="text-cyan-300 font-mono">firmware_sessions</code>, and <code className="text-cyan-300 font-mono">console_logs</code>. Easily imported into SQLite, DuckDB, or PostgreSQL via <code className="text-slate-300 font-mono">sqlite3 firmware.db &lt; dump.sql</code>.
+                  </li>
+                  <li>
+                    <strong className="text-slate-200">Offline Disk Folder Streaming (File System Access API):</strong> Directly prompts the user to select an offline local disk directory or USB hard drive, and writes logs into a clean folder hierarchy: <code className="text-amber-300 font-mono">/YYYY-MM/TASK_SESSION.log</code>.
+                  </li>
+                  <li>
+                    <strong className="text-slate-200">NDJSON Archive:</strong> Line-delimited JSON format optimized for ingestion into Elasticsearch, BigQuery, or Grafana Loki.
+                  </li>
+                </ul>
+              </div>
+            </div>
+          )}
           {activeTab === 'webserial' && (
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-amber-400 flex items-center gap-1.5">

@@ -2,18 +2,23 @@ import React, { useMemo, useState } from 'react';
 import {
   Check,
   Copy,
+  Database,
   Download,
   FileCheck,
   FileCode,
   FileSpreadsheet,
   FileText,
   Filter,
+  FolderDown,
+  HardDrive,
   Layers,
   Settings2,
   X,
 } from 'lucide-react';
 import { ExportOptions, LogEntry, SerialDevice, SessionAnalytics } from '../types';
 import { downloadFile, generateExportContent } from '../utils/exportTools';
+import { exportDirectlyToOfflineDiskFolder, exportToSqliteFile } from '../utils/sqliteExporter';
+import { indexedDBStorage } from '../utils/indexedDBStorage';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -21,6 +26,7 @@ interface ExportModalProps {
   logs: LogEntry[];
   devices: SerialDevice[];
   sessionAnalytics: SessionAnalytics;
+  onOpenArchive?: () => void;
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({
@@ -29,6 +35,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   logs,
   devices,
   sessionAnalytics,
+  onOpenArchive,
 }) => {
   const [format, setFormat] = useState<ExportOptions['format']>('markdown');
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('all');
@@ -259,6 +266,33 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 <span className="text-slate-400">log lines or upon kernel panic</span>
               </div>
             )}
+          </div>
+
+          {/* 60-Month IndexedDB Archive & SQLite/Disk Tools */}
+          <div className="bg-indigo-950/30 border border-indigo-800/60 rounded-lg p-3.5 text-xs space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Database className="w-4 h-4 text-indigo-400" />
+                <span className="font-semibold text-slate-100">
+                  Chrome IndexedDB 60-Month Archive &amp; Offline Storage
+                </span>
+              </div>
+              {onOpenArchive && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenArchive();
+                  }}
+                  className="text-cyan-400 hover:text-cyan-300 font-medium underline text-[11px]"
+                >
+                  Open 60-Mo Archive Explorer &rarr;
+                </button>
+              )}
+            </div>
+            <p className="text-slate-400 text-[11px]">
+              Store daily firmware download sessions (~100/day across 60 months) with Task ID and Session ID indexing. Export complete historical datasets to SQLite database or directly stream to offline disk folders.
+            </p>
           </div>
 
           {/* Preview Box */}

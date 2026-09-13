@@ -19,6 +19,7 @@ interface DeviceConnectionBarProps {
   onConnect: (device: SerialDevice) => void;
   onDisconnect: (deviceId: string) => void;
   onToggleSignal: (deviceId: string, signal: 'dtr' | 'rts') => void;
+  onOpenFlasher?: () => void;
 }
 
 const COMMON_BAUD_RATES = [
@@ -31,6 +32,7 @@ export const DeviceConnectionBar: React.FC<DeviceConnectionBarProps> = ({
   onConnect,
   onDisconnect,
   onToggleSignal,
+  onOpenFlasher,
 }) => {
   const [showAdvancedSettings, setShowAdvancedSettings] = React.useState(false);
   const [customBaud, setCustomBaud] = React.useState('');
@@ -365,6 +367,19 @@ export const DeviceConnectionBar: React.FC<DeviceConnectionBarProps> = ({
               </span>
             </div>
           </div>
+        )}
+
+        {/* Download Image & Power Cycle Reboot Button */}
+        {isConnected && onOpenFlasher && (
+          <button
+            type="button"
+            onClick={onOpenFlasher}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md font-semibold text-xs bg-gradient-to-r from-amber-600 to-cyan-600 hover:from-amber-500 hover:to-cyan-500 text-white shadow-sm transition"
+            title="Download firmware image binary, power cycle reboot, and record boot console output"
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span>Flash &amp; Reboot</span>
+          </button>
         )}
 
         {/* Main Connect / Disconnect Action Button */}
