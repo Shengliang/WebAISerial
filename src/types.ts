@@ -212,3 +212,51 @@ export interface FlashTransferState {
   phaseMessage: string;
   error?: string;
 }
+
+export type LiveRole = 'writer' | 'reader' | 'none';
+
+export interface LiveParticipant {
+  id: string;
+  name: string;
+  role: 'writer' | 'reader';
+  joinedAt: number;
+}
+
+export interface LiveDeviceInfo {
+  name: string;
+  baudRate: number;
+  status: string;
+  portName?: string;
+}
+
+export interface LiveSessionState {
+  isLive: boolean;
+  role: LiveRole;
+  sessionId: string | null;
+  sessionName: string;
+  taskId: string;
+  writerName: string;
+  writerId: string | null;
+  deviceInfo?: LiveDeviceInfo;
+  participants: LiveParticipant[];
+  connected: boolean;
+  latencyMs: number;
+  lastWriterCommand?: {
+    command: string;
+    isHex: boolean;
+    timestamp: number;
+    writerName: string;
+  };
+}
+
+export interface LiveRoomSummary {
+  sessionId: string;
+  sessionName: string;
+  taskId: string;
+  writerName: string;
+  createdAt: number;
+  participantCount: number;
+  deviceInfo?: LiveDeviceInfo;
+  logCount: number;
+  hasWriter: boolean;
+}

@@ -20,6 +20,8 @@ interface DeviceConnectionBarProps {
   onDisconnect: (deviceId: string) => void;
   onToggleSignal: (deviceId: string, signal: 'dtr' | 'rts') => void;
   onOpenFlasher?: () => void;
+  isReaderMode?: boolean;
+  hostWriterName?: string;
 }
 
 const COMMON_BAUD_RATES = [
@@ -33,6 +35,8 @@ export const DeviceConnectionBar: React.FC<DeviceConnectionBarProps> = ({
   onDisconnect,
   onToggleSignal,
   onOpenFlasher,
+  isReaderMode = false,
+  hostWriterName = 'Engineer A',
 }) => {
   const [showAdvancedSettings, setShowAdvancedSettings] = React.useState(false);
   const [customBaud, setCustomBaud] = React.useState('');
@@ -165,7 +169,7 @@ export const DeviceConnectionBar: React.FC<DeviceConnectionBarProps> = ({
             </form>
           ) : (
             <select
-              disabled={isConnected}
+              disabled={isConnected || isReaderMode}
               value={
                 COMMON_BAUD_RATES.includes(device.config.baudRate)
                   ? device.config.baudRate
@@ -383,32 +387,39 @@ export const DeviceConnectionBar: React.FC<DeviceConnectionBarProps> = ({
         )}
 
         {/* Main Connect / Disconnect Action Button */}
-        <button
-          onClick={() => {
-            if (isConnected) {
-              onDisconnect(device.id);
-            } else {
-              onConnect(device);
-            }
-          }}
-          disabled={isConnecting}
-          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md font-medium text-xs transition shadow-sm ${
-            isConnected
-              ? 'bg-rose-950/80 hover:bg-rose-900 text-rose-200 border border-rose-800'
-              : 'bg-cyan-600 hover:bg-cyan-500 text-white border border-cyan-500'
-          }`}
-        >
-          <Power className={`w-3.5 h-3.5 ${isConnected ? 'text-rose-400' : 'text-cyan-200'}`} />
-          <span>
-            {isConnecting
-              ? 'Connecting...'
-              : isConnected
-              ? 'Disconnect Port'
-              : device.portType === 'webserial'
-              ? 'Open Serial Port'
-              : 'Boot Simulator'}
-          </span>
-        </button>
+        {isReaderMode ? (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-emerald-950/60 border border-emerald-700/80 text-emerald-300 text-xs font-mono font-medium">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Host Link: {hostWriterName}</span>
+          </div>
+        ) : (
+          <button
+            onClick={() => {
+              if (isConnected) {
+                onDisconnect(device.id);
+              } else {
+                onConnect(device);
+              }
+            }}
+            disabled={isConnecting}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md font-medium text-xs transition shadow-sm ${
+              isConnected
+                ? 'bg-rose-950/80 hover:bg-rose-900 text-rose-200 border border-rose-800'
+                : 'bg-cyan-600 hover:bg-cyan-500 text-white border border-cyan-500'
+            }`}
+          >
+            <Power className={`w-3.5 h-3.5 ${isConnected ? 'text-rose-400' : 'text-cyan-200'}`} />
+            <span>
+              {isConnecting
+                ? 'Connecting...'
+                : isConnected
+                ? 'Disconnect Port'
+                : device.portType === 'webserial'
+                ? 'Open Serial Port'
+                : 'Boot Simulator'}
+            </span>
+          </button>
+        )}
       </div>
     </div>
   );

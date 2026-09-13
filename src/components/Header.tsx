@@ -14,6 +14,7 @@ import {
   Lock,
   Plus,
   Power,
+  Radio,
   RefreshCw,
   Terminal,
   Unlock,
@@ -22,7 +23,7 @@ import {
   Columns,
   Zap,
 } from 'lucide-react';
-import { SerialDevice, UserProfile } from '../types';
+import { LiveSessionState, SerialDevice, UserProfile } from '../types';
 import { AppSyncState, AVAILABLE_USERS } from '../utils/syncManager';
 
 interface HeaderProps {
@@ -44,6 +45,8 @@ interface HeaderProps {
   onOpenShortcuts: () => void;
   onOpenFlasher: () => void;
   onOpenArchive: () => void;
+  onOpenLiveModal?: () => void;
+  liveState?: LiveSessionState;
   activeTaskId?: string;
   activeSessionId?: string;
 }
@@ -67,6 +70,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenShortcuts,
   onOpenFlasher,
   onOpenArchive,
+  onOpenLiveModal,
+  liveState,
   activeTaskId = 'TASK-FW-2026-0913',
   activeSessionId = 'SESS-0042',
 }) => {
@@ -159,6 +164,28 @@ export const Header: React.FC<HeaderProps> = ({
               <Unlock className="w-3.5 h-3.5 text-cyan-400" />
             )}
             <span className="hidden md:inline">Vault</span>
+          </button>
+
+          {/* Live Console Sharing (1 Writer, N Readers) */}
+          <button
+            onClick={onOpenLiveModal}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition border ${
+              liveState?.isLive
+                ? liveState.role === 'writer'
+                  ? 'bg-rose-950 text-rose-200 border-rose-600 shadow-md shadow-rose-950 animate-pulse'
+                  : 'bg-emerald-950 text-emerald-200 border-emerald-600 shadow-md shadow-emerald-950'
+                : 'bg-slate-800/90 hover:bg-slate-750 text-rose-300 border-rose-900/70 hover:border-rose-700'
+            }`}
+            title="Share serial console live with team members across the web (1 Writer, N Readers)"
+          >
+            <Radio className={`w-3.5 h-3.5 ${liveState?.isLive ? 'animate-pulse text-rose-400' : 'text-rose-400'}`} />
+            <span>
+              {liveState?.isLive
+                ? liveState.role === 'writer'
+                  ? `Broadcasting (${liveState.participants.length})`
+                  : `Live Observer (${liveState.participants.length})`
+                : 'Live Share'}
+            </span>
           </button>
 
           {/* Flash & Reboot Workflow Button */}

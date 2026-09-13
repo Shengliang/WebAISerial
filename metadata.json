@@ -1,6 +1,6 @@
 {
   "name": "Embedded Firmware Serial Console & Debugger",
-  "description": "Web terminal and serial console for embedded firmware debugging with real-time streaming, adjustable baud rates, hex dump view, multi-device WebSerial support, automated firmware download & power-cycle boot capture workflow, 60-month IndexedDB session retention, and SQLite/offline disk exporters.",
+  "description": "Web terminal and serial console for embedded firmware debugging with real-time streaming, adjustable baud rates, hex dump view, multi-device WebSerial support, automated firmware download & power-cycle boot capture workflow, 60-month IndexedDB session retention, SQLite/offline disk exporters, and real-time live console sharing (1 writer, N readers).",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -12,6 +12,8 @@ import { ExportModal } from './components/ExportModal';
 import { FirmwareFlasherModal } from './components/FirmwareFlasherModal';
 import { Header } from './components/Header';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
+import { LiveSessionBanner } from './components/LiveSessionBanner';
+import { LiveSessionModal } from './components/LiveSessionModal';
 import { MacroManagerModal } from './components/MacroManagerModal';
 import { ScriptAutomationModal } from './components/ScriptAutomationModal';
 import { SessionArchiveModal } from './components/SessionArchiveModal';
@@ -21,6 +23,7 @@ import { DEFAULT_MACROS } from './data/defaultMacros';
 import {
   CommandMacro,
   LineEnding,
+  LiveSessionState,
   LogEntry,
   LogLevel,
   SerialDevice,
@@ -29,6 +32,7 @@ import {
   UserProfile,
 } from './types';
 import { parseHexInput } from './utils/hexFormatter';
+import { liveSessionClient } from './utils/liveSessionClient';
 import { serialService } from './utils/serialService';
 import { AppSyncState, AVAILABLE_USERS, syncManager } from './utils/syncManager';
 
@@ -81,6 +85,12 @@ export default function App() {
   const [isMacroManagerOpen, setIsMacroManagerOpen] = useState(false);
   const [isFlasherOpen, setIsFlasherOpen] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [isLiveModalOpen, setIsLiveModalOpen] = useState(false);
+
+  // Real-Time 1-Writer N-Readers Live Session State
+  const [liveState, setLiveState] = useState<LiveSessionState>(liveSessionClient.getState());
+  const liveStateRef = useRef(liveState);
+  liveStateRef.current = liveState;
 
   // Active Task & Session Tracking for Daily Firmware Download & Boot Runs
   const [activeTaskId, setActiveTaskId] = useState('TASK-FW-2026-0913');
@@ -106,12 +116,64 @@ export default function App() {
   const isPausedRef = useRef(isPaused);
   isPausedRef.current = isPaused;
 
-  // Initialize sync manager subscriber
+  // Initialize sync manager and live session subscribers
   useEffect(() => {
-    const unsubscribe = syncManager.subscribe(state => {
+    const unsubscribeSync = syncManager.subscribe(state => {
       setSyncState(state);
     });
-    return () => unsubscribe();
+
+    const unsubscribeLive = liveSessionClient.subscribe(state => {
+      setLiveState(state);
+    });
+
+    // When observing as reader, append incoming live logs
+    const unsubscribeLogs = liveSessionClient.onLogs(incomingLogs => {
+      if (liveStateRef.current.role === 'reader') {
+        setLogs(prev => {
+          const next = [...prev, ...incomingLogs];
+          return next.length > 3000 ? next.slice(-2500) : next;
+        });
+      }
+    });
+
+    // When observing as reader, receive writer command injections
+    const unsubscribeCmd = liveSessionClient.onWriterCommand(cmd => {
+      if (liveStateRef.current.role === 'reader') {
+        const cmdEntry: LogEntry = {
+          id: 'live-cmd-' + Date.now(),
+          timestamp: cmd.timestamp,
+          deviceId: 'host-device',
+          deviceName: `${cmd.writerName} (Host)`,
+          level: 'COMMAND',
+          direction: 'TX',
+          text: `[Host Injected] ${cmd.command}`,
+        };
+        setLogs(prev => [...prev.slice(-2500), cmdEntry]);
+      }
+    });
+
+    const unsubscribeClear = liveSessionClient.onLogsCleared(() => {
+      if (liveStateRef.current.role === 'reader') {
+        setLogs([]);
+      }
+    });
+
+    // Check URL parameters on mount for live session invite
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const liveId = params.get('live') || params.get('session');
+      if (liveId) {
+        setIsLiveModalOpen(true);
+      }
+    }
+
+    return () => {
+      unsubscribeSync();
+      unsubscribeLive();
+      unsubscribeLogs();
+      unsubscribeCmd();
+      unsubscribeClear();
+    };
   }, []);
 
   // Configure Serial Manager callbacks
@@ -158,6 +220,11 @@ export default function App() {
           const next = prev.length > 2500 ? [...prev.slice(-2000), newEntry] : [...prev, newEntry];
           return next;
         });
+
+        // Broadcast to live audience if acting as host writer
+        if (liveStateRef.current.isLive && liveStateRef.current.role === 'writer') {
+          liveSessionClient.streamLogs([newEntry]);
+        }
 
         // Record for offline tracking
         syncManager.recordOfflineChange('log');
@@ -230,6 +297,11 @@ export default function App() {
         e.preventDefault();
         setIsArchiveOpen(prev => !prev);
       }
+      // Ctrl+Shift+L: Live Serial Console Sharing (1 Writer, N Readers)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'l') {
+        e.preventDefault();
+        setIsLiveModalOpen(prev => !prev);
+      }
       // Ctrl+P: Pause
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'p') {
         e.preventDefault();
@@ -261,6 +333,7 @@ export default function App() {
         setIsMacroManagerOpen(false);
         setIsFlasherOpen(false);
         setIsArchiveOpen(false);
+        setIsLiveModalOpen(false);
       }
     };
 
@@ -373,6 +446,11 @@ export default function App() {
         else if (lineEnding === 'CR') payload += '\r';
         await serialService.send(activeDevice.id, payload);
       }
+
+      // Broadcast command to team members watching live
+      if (liveStateRef.current.isLive && liveStateRef.current.role === 'writer') {
+        liveSessionClient.broadcastWriterCommand(command, isHex);
+      }
     } catch (err: any) {
       console.error('Send failed:', err);
     }
@@ -384,7 +462,12 @@ export default function App() {
 
   const handleClearLogs = (deviceId: string) => {
     setLogs(prev => prev.filter(l => l.deviceId !== deviceId));
+    if (liveStateRef.current.isLive && liveStateRef.current.role === 'writer') {
+      liveSessionClient.requestClearLogs();
+    }
   };
+
+  const isReader = liveState.isLive && liveState.role === 'reader';
 
   return (
     <div className="flex flex-col h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans select-none">
@@ -411,8 +494,17 @@ export default function App() {
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
         onOpenFlasher={() => setIsFlasherOpen(true)}
         onOpenArchive={() => setIsArchiveOpen(true)}
+        onOpenLiveModal={() => setIsLiveModalOpen(true)}
+        liveState={liveState}
         activeTaskId={activeTaskId}
         activeSessionId={activeSessionId}
+      />
+
+      {/* Real-time 1-Writer N-Readers Live Session Top Banner */}
+      <LiveSessionBanner
+        liveState={liveState}
+        onOpenLiveModal={() => setIsLiveModalOpen(true)}
+        onLeaveSession={() => liveSessionClient.leaveSession()}
       />
 
       {/* Main Terminal Viewport Area */}
@@ -429,6 +521,8 @@ export default function App() {
                   onDisconnect={handleDisconnect}
                   onToggleSignal={handleToggleSignal}
                   onOpenFlasher={() => setIsFlasherOpen(true)}
+                  isReaderMode={isReader}
+                  hostWriterName={liveState.writerName}
                 />
                 <div className="flex-1 min-h-0">
                   <TerminalView
@@ -453,6 +547,8 @@ export default function App() {
                 onDisconnect={handleDisconnect}
                 onToggleSignal={handleToggleSignal}
                 onOpenFlasher={() => setIsFlasherOpen(true)}
+                isReaderMode={isReader}
+                hostWriterName={liveState.writerName}
               />
             )}
             <div className="flex-1 min-h-0">
@@ -474,6 +570,8 @@ export default function App() {
           onTriggerMacro={handleTriggerMacro}
           onOpenMacroManager={() => setIsMacroManagerOpen(true)}
           disabled={!activeDevice || activeDevice.status !== 'connected'}
+          isReaderMode={isReader}
+          writerName={liveState.writerName}
         />
       </div>
 
@@ -549,6 +647,47 @@ export default function App() {
           setActiveSessionId(session.id);
           setLogs(session.logs);
           setIsArchiveOpen(false);
+        }}
+      />
+
+      {/* Real-time 1-Writer N-Readers Live Session Collaboration Modal */}
+      <LiveSessionModal
+        isOpen={isLiveModalOpen}
+        onClose={() => setIsLiveModalOpen(false)}
+        liveState={liveState}
+        activeDevice={activeDevice}
+        currentUserName={currentUser.name}
+        defaultTaskId={activeTaskId}
+        onStartBroadcasting={async (sessionId, sessionName, taskId) => {
+          try {
+            await liveSessionClient.startHostSession(
+              sessionId,
+              sessionName,
+              taskId,
+              currentUser.name || 'Engineer A',
+              {
+                name: activeDevice ? activeDevice.name : 'Virtual Serial Bench',
+                baudRate: activeDevice ? activeDevice.config.baudRate : 115200,
+                status: activeDevice ? activeDevice.status : 'connected',
+              },
+              logs.slice(-200)
+            );
+            setActiveTaskId(taskId);
+            setActiveSessionId(sessionId);
+          } catch (e: any) {
+            console.error('Failed to start live session:', e);
+          }
+        }}
+        onJoinAsReader={async (sessionId, readerName) => {
+          try {
+            await liveSessionClient.joinAsReader(sessionId, readerName);
+            setIsLiveModalOpen(false);
+          } catch (e: any) {
+            console.error('Failed to join live session:', e);
+          }
+        }}
+        onLeaveSession={() => {
+          liveSessionClient.leaveSession();
         }}
       />
     </div>
