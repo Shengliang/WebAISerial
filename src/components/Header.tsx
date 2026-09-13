@@ -46,6 +46,7 @@ interface HeaderProps {
   onOpenFlasher: () => void;
   onOpenArchive: () => void;
   onOpenLiveModal?: () => void;
+  onOpenArmSimulator?: () => void;
   liveState?: LiveSessionState;
   activeTaskId?: string;
   activeSessionId?: string;
@@ -71,6 +72,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenFlasher,
   onOpenArchive,
   onOpenLiveModal,
+  onOpenArmSimulator,
   liveState,
   activeTaskId = 'TASK-FW-2026-0913',
   activeSessionId = 'SESS-0042',
@@ -186,6 +188,16 @@ export const Header: React.FC<HeaderProps> = ({
                   : `Live Observer (${liveState.participants.length})`
                 : 'Live Share'}
             </span>
+          </button>
+
+          {/* ARM Cortex CPU Simulator & C IDE Button */}
+          <button
+            onClick={onOpenArmSimulator}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-cyan-950/90 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/80 transition shadow"
+            title="ARM Cortex CPU Simulator, C IDE, LED Blinking Demo & Datapath Visualizer (Zero Hardware)"
+          >
+            <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+            <span>ARM C Simulator</span>
           </button>
 
           {/* Flash & Reboot Workflow Button */}

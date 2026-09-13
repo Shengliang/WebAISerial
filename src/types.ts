@@ -4,7 +4,7 @@
 
 export type PortType = 'webserial' | 'virtual';
 
-export type VirtualProfile = 'esp32' | 'stm32' | 'nrf52' | 'custom_echo';
+export type VirtualProfile = 'esp32' | 'stm32' | 'nrf52' | 'arm_cortex' | 'custom_echo';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 

@@ -6,6 +6,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiDocumentationModal } from './components/ApiDocumentationModal';
 import { AnalyticsDashboardModal } from './components/AnalyticsDashboardModal';
+import { ArmSimulatorModal } from './components/ArmSimulatorModal';
 import { CommandInputBar } from './components/CommandInputBar';
 import { DeviceConnectionBar } from './components/DeviceConnectionBar';
 import { ExportModal } from './components/ExportModal';
@@ -86,6 +87,7 @@ export default function App() {
   const [isFlasherOpen, setIsFlasherOpen] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [isLiveModalOpen, setIsLiveModalOpen] = useState(false);
+  const [isArmSimulatorOpen, setIsArmSimulatorOpen] = useState(false);
 
   // Real-Time 1-Writer N-Readers Live Session State
   const [liveState, setLiveState] = useState<LiveSessionState>(liveSessionClient.getState());
@@ -302,6 +304,11 @@ export default function App() {
         e.preventDefault();
         setIsLiveModalOpen(prev => !prev);
       }
+      // Ctrl+Shift+M: ARM Cortex CPU Simulator & C IDE
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'm') {
+        e.preventDefault();
+        setIsArmSimulatorOpen(prev => !prev);
+      }
       // Ctrl+P: Pause
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'p') {
         e.preventDefault();
@@ -334,6 +341,7 @@ export default function App() {
         setIsFlasherOpen(false);
         setIsArchiveOpen(false);
         setIsLiveModalOpen(false);
+        setIsArmSimulatorOpen(false);
       }
     };
 
@@ -495,6 +503,7 @@ export default function App() {
         onOpenFlasher={() => setIsFlasherOpen(true)}
         onOpenArchive={() => setIsArchiveOpen(true)}
         onOpenLiveModal={() => setIsLiveModalOpen(true)}
+        onOpenArmSimulator={() => setIsArmSimulatorOpen(true)}
         liveState={liveState}
         activeTaskId={activeTaskId}
         activeSessionId={activeSessionId}
@@ -521,6 +530,7 @@ export default function App() {
                   onDisconnect={handleDisconnect}
                   onToggleSignal={handleToggleSignal}
                   onOpenFlasher={() => setIsFlasherOpen(true)}
+                  onOpenArmSimulator={() => setIsArmSimulatorOpen(true)}
                   isReaderMode={isReader}
                   hostWriterName={liveState.writerName}
                 />
@@ -547,6 +557,7 @@ export default function App() {
                 onDisconnect={handleDisconnect}
                 onToggleSignal={handleToggleSignal}
                 onOpenFlasher={() => setIsFlasherOpen(true)}
+                onOpenArmSimulator={() => setIsArmSimulatorOpen(true)}
                 isReaderMode={isReader}
                 hostWriterName={liveState.writerName}
               />
@@ -688,6 +699,32 @@ export default function App() {
         }}
         onLeaveSession={() => {
           liveSessionClient.leaveSession();
+        }}
+      />
+
+      {/* ARM Cortex-M CPU Simulator, C IDE, LED Blinking & Complete Datapath Demo */}
+      <ArmSimulatorModal
+        isOpen={isArmSimulatorOpen}
+        onClose={() => setIsArmSimulatorOpen(false)}
+        onForwardSerialLog={(text, rawBytes) => {
+          const entry: LogEntry = {
+            id: 'arm-log-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+            timestamp: Date.now(),
+            deviceId: activeDeviceId,
+            deviceName: activeDevice?.name || 'ARM Cortex-M3',
+            level: text.includes('ERROR') ? 'ERROR' : text.includes('WARN') ? 'WARN' : 'INFO',
+            direction: 'RX',
+            text,
+            rawBytes,
+            hexView: rawBytes?.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' '),
+          };
+          setLogs(prev => {
+            const next = [...prev, entry];
+            return next.length > 3000 ? next.slice(-2500) : next;
+          });
+          if (liveStateRef.current.isLive && liveStateRef.current.role === 'writer') {
+            liveSessionClient.streamLogs([entry]);
+          }
         }}
       />
     </div>

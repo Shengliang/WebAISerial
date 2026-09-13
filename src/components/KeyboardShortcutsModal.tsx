@@ -27,6 +27,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
     {
       category: 'Views & Modals',
       items: [
+        { key: 'Ctrl + Shift + M', desc: 'ARM Cortex CPU Simulator, C IDE & Datapath Demo (No Hardware)' },
         { key: 'Ctrl + Shift + F', desc: 'Download Image over serial -> Power Cycle -> Capture Boot Log' },
         { key: 'Ctrl + Shift + L', desc: 'Live Serial Console Sharing (1 Writer, N Readers anywhere on web)' },
         { key: 'Ctrl + Shift + D', desc: 'Open Chrome IndexedDB 60-Month Session Archive & SQLite Exporter' },

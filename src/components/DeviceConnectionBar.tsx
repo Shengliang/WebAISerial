@@ -20,6 +20,7 @@ interface DeviceConnectionBarProps {
   onDisconnect: (deviceId: string) => void;
   onToggleSignal: (deviceId: string, signal: 'dtr' | 'rts') => void;
   onOpenFlasher?: () => void;
+  onOpenArmSimulator?: () => void;
   isReaderMode?: boolean;
   hostWriterName?: string;
 }
@@ -35,6 +36,7 @@ export const DeviceConnectionBar: React.FC<DeviceConnectionBarProps> = ({
   onDisconnect,
   onToggleSignal,
   onOpenFlasher,
+  onOpenArmSimulator,
   isReaderMode = false,
   hostWriterName = 'Engineer A',
 }) => {
@@ -127,11 +129,14 @@ export const DeviceConnectionBar: React.FC<DeviceConnectionBarProps> = ({
                       ? 'STM32-H7 Telemetry'
                       : e.target.value === 'nrf52'
                       ? 'nRF52840 BLE Beacon'
+                      : e.target.value === 'arm_cortex'
+                      ? 'ARM Cortex-M3 (Simulated)'
                       : 'High-Throughput Echo',
                 })
               }
               className="bg-slate-950 text-slate-200 border border-slate-700 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-indigo-500 font-mono"
             >
+              <option value="arm_cortex">ARM Cortex-M3 (C Core Simulator)</option>
               <option value="esp32">ESP32-S3 (FreeRTOS CLI)</option>
               <option value="stm32">STM32H7 (IMU/CAN Telemetry)</option>
               <option value="nrf52">nRF52840 (BLE 5.3 Adv Stream)</option>
@@ -371,6 +376,19 @@ export const DeviceConnectionBar: React.FC<DeviceConnectionBarProps> = ({
               </span>
             </div>
           </div>
+        )}
+
+        {/* ARM Cortex C Studio & Datapath Visualizer Button */}
+        {onOpenArmSimulator && (
+          <button
+            type="button"
+            onClick={onOpenArmSimulator}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md font-semibold text-xs bg-cyan-950/90 hover:bg-cyan-900/90 text-cyan-300 border border-cyan-700/80 shadow-sm transition"
+            title="Open ARM Cortex CPU Simulator, C IDE, LED Blinking Demo & Datapath Visualizer"
+          >
+            <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+            <span>ARM C Studio</span>
+          </button>
         )}
 
         {/* Download Image & Power Cycle Reboot Button */}

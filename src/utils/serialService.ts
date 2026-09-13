@@ -4,6 +4,9 @@
  */
 
 import { SerialConfig, SerialDevice, VirtualProfile } from '../types';
+import { armSimulator } from './armSimulator/armCpu';
+import { compileCSource } from './armSimulator/cCompiler';
+import { SAMPLE_C_PROGRAMS } from './armSimulator/samplePrograms';
 
 export function isWebSerialSupported(): boolean {
   return typeof navigator !== 'undefined' && 'serial' in navigator;
@@ -67,6 +70,10 @@ class SerialManager {
     if (conn.virtualTimer) clearInterval(conn.virtualTimer);
     if (conn.virtualSubTimer) clearInterval(conn.virtualSubTimer);
     if (conn.rxThroughputTimer) clearInterval(conn.rxThroughputTimer);
+
+    if (conn.device.virtualProfile === 'arm_cortex') {
+      armSimulator.pause();
+    }
 
     if (conn.reader) {
       try {
@@ -348,6 +355,29 @@ class SerialManager {
         }
       }, 1200);
 
+    } else if (profile === 'arm_cortex') {
+      this.onLog(deviceId, '\x1b[36m[ARM-SIM] Initializing Simulated ARM Cortex-M3 Core (Zero Physical Hardware Required)...\x1b[0m\r\n', undefined, 'RX');
+      this.onLog(deviceId, '\x1b[32m[ARM-SIM] Flash Base: 0x08000000 | SRAM: 0x20000000 | USART1: 115200bps\x1b[0m\r\n', undefined, 'RX');
+      this.onLog(deviceId, '\x1b[33m[ARM-SIM] PC13 User LED: Ready (Active Low) | Launching execution datapath\x1b[0m\r\n', undefined, 'RX');
+
+      if (armSimulator.instructionCount === 0) {
+        const compileRes = compileCSource(SAMPLE_C_PROGRAMS[0].code);
+        if (compileRes.success) {
+          armSimulator.flashBinary(compileRes.binary);
+        }
+      }
+
+      armSimulator.setCallbacks({
+        onSerialTx: (char, rawByte) => {
+          if (conn.device.status === 'connected') {
+            conn.device.rxBytesTotal += 1;
+            conn.rxWindowBytes += 1;
+            this.onLog(deviceId, char, [rawByte], 'RX');
+          }
+        },
+      });
+
+      armSimulator.run(1000);
     } else {
       // Custom Echo / Test profile
       this.onLog(deviceId, `[ECHO-ENGINE] Ready. Send any text or hex payload to test roundtrip.\r\n`, undefined, 'RX');
@@ -419,6 +449,11 @@ class SerialManager {
           this.pushVirtualOutput(conn, `\r\n[CALIB] Starting Gyro zero-rate integration... [OK] Offsets applied to Flash Sector 7.\r\nstm32> `);
         } else {
           this.pushVirtualOutput(conn, `\r\n[ACK] Command received: "${trimmed}" -> Executed in 1.4ms\r\nstm32> `);
+        }
+      } else if (profile === 'arm_cortex') {
+        // Feed input bytes directly into USART1 RX buffer of ARM simulator
+        for (let i = 0; i < input.length; i++) {
+          armSimulator.injectSerialRx(input.charCodeAt(i));
         }
       } else {
         // Echo
