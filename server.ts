@@ -96,7 +96,26 @@ async function startServer() {
 
   // Create HTTP & WebSocket Server
   const server = http.createServer(app);
-  const wss = new WebSocketServer({ server });
+  const wss = new WebSocketServer({ noServer: true });
+
+  server.on('upgrade', (request, socket, head) => {
+    // Ignore and close Vite HMR upgrade requests so they do not error in custom live console
+    const secWebSocketProtocol = request.headers['sec-websocket-protocol'];
+    if (typeof secWebSocketProtocol === 'string' && secWebSocketProtocol.includes('vite-hmr')) {
+      socket.destroy();
+      return;
+    }
+
+    const host = request.headers.host || 'localhost:3000';
+    const url = new URL(request.url || '/', `http://${host}`);
+    if (url.pathname === '/api/live-ws' || url.pathname === '/ws' || url.pathname === '/') {
+      wss.handleUpgrade(request, socket, head, ws => {
+        wss.emit('connection', ws, request);
+      });
+    } else {
+      socket.destroy();
+    }
+  });
 
   function broadcastToRoom(
     sessionId: string,
@@ -422,7 +441,10 @@ async function startServer() {
   // Vite Middleware in Development vs Static in Production
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: process.env.DISABLE_HMR === 'true' ? false : undefined,
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
