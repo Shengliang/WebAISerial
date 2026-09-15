@@ -171,7 +171,7 @@ export const ArmSimulatorModal: React.FC<ArmSimulatorModalProps> = ({
     setCCode(prog.code);
     setSelectedErrorLine(null);
     handleCompileAndFlash(prog.code);
-    if (progId === 'uboot_c_function_add') {
+    if (progId === 'uboot_c_function_add' || progId === 'uboot_c_math_suite') {
       setRightPaneTab('uboot');
     }
   };
@@ -194,6 +194,7 @@ export const ArmSimulatorModal: React.FC<ArmSimulatorModalProps> = ({
     setSelectedErrorLine(null);
     armSimulator.flashBinary(result.binary);
     uboot.updateSymbols(result.symbols);
+    uboot.latestDisassembly = result.disassembly;
     setSerialOutput('');
     setRegisters({ ...armSimulator.registers });
     setPrevRegisters({ ...armSimulator.prevRegisters });

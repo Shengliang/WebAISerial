@@ -3,7 +3,17 @@
  * Provides authentic Das U-Boot commands (md, mw, cp, cmp, bdinfo, printenv, setenv, go, call, symbols, reset)
  */
 
-import { armSimulator, FLASH_BASE, FLASH_SIZE, SRAM_BASE, SRAM_SIZE, STACK_TOP } from './armCpu';
+import {
+  armSimulator,
+  ADDR_GPIOC_ODR,
+  ADDR_GPIOC_MODER,
+  FLASH_BASE,
+  FLASH_SIZE,
+  SRAM_BASE,
+  SRAM_SIZE,
+  STACK_TOP,
+} from './armCpu';
+import { ArmDisassemblyLine } from './armTypes';
 import { compileCSource } from './cCompiler';
 
 export interface UBootOutputLine {
@@ -39,7 +49,7 @@ function calculateCrc32(bytes: Uint8Array): number {
 export class UBootEngine {
   private env: Record<string, string> = {
     baudrate: '115200',
-    bootcmd: 'echo Booting from Flash...; go 0x08000008',
+    bootcmd: 'echo [BOOT] Starting self-test...; symbols; go add 15 27; md.l 0x20000000 4',
     bootdelay: '3',
     board: 'stm32f103c8t6-sim',
     soc: 'stm32f1xx',
@@ -50,6 +60,7 @@ export class UBootEngine {
     stderr: 'serial',
     loadaddr: '0x20000000',
     app_entry: '0x08000008',
+    selftest: 'mtest 0x20000000 0x20000400; go add 40 2',
   };
 
   private symbols: Record<string, number> = {};
@@ -57,6 +68,7 @@ export class UBootEngine {
   private baseAddress: number = 0;
   private history: string[] = [];
   private historyIndex: number = -1;
+  public latestDisassembly: ArmDisassemblyLine[] = [];
 
   constructor() {
     this.resetSymbols();
@@ -72,6 +84,10 @@ export class UBootEngine {
 
   public updateSymbols(newSymbols: Record<string, number>) {
     this.symbols = { ...this.symbols, ...newSymbols };
+  }
+
+  public setDisassembly(disassembly: ArmDisassemblyLine[]) {
+    this.latestDisassembly = disassembly;
   }
 
   public getSymbols(): Record<string, number> {
@@ -234,6 +250,29 @@ export class UBootEngine {
       case 'call':
         return this.cmdGo(args);
 
+      case 'run':
+        return this.cmdRun(args, currentCSource);
+
+      case 'mtest':
+        return this.cmdMemoryTest(args);
+
+      case 'gpio':
+        return this.cmdGpio(args);
+
+      case 'led':
+        return this.cmdLed(args);
+
+      case 'disasm':
+      case 'dis':
+        return this.cmdDisassemble(args);
+
+      case 'reg':
+      case 'regs':
+        return this.cmdRegisters(args);
+
+      case 'sleep':
+        return this.cmdSleep(args);
+
       case 'reset':
         armSimulator.reset();
         return [
@@ -275,6 +314,44 @@ export class UBootEngine {
           { text: `Example: mw.l 0x20000000 0x12345678 1`, type: 'output' },
         ];
       }
+      if (sc === 'run') {
+        return [
+          { text: `run - run commands in an environment variable`, type: 'info' },
+          { text: `Usage: run varname [varname2...]`, type: 'output' },
+          { text: `Example: run bootcmd`, type: 'output' },
+          { text: `Example: run selftest`, type: 'output' },
+        ];
+      }
+      if (sc === 'mtest') {
+        return [
+          { text: `mtest - simple RAM memory test`, type: 'info' },
+          { text: `Usage: mtest [start [end [pattern]]]`, type: 'output' },
+          { text: `Example: mtest 0x20000000 0x20000400`, type: 'output' },
+        ];
+      }
+      if (sc === 'disasm' || sc === 'dis') {
+        return [
+          { text: `disasm - disassemble Thumb-2 instructions`, type: 'info' },
+          { text: `Usage: disasm [symbol|address] [count]`, type: 'output' },
+          { text: `Example: disasm add 8`, type: 'output' },
+          { text: `Example: disasm 0x08000008 12`, type: 'output' },
+        ];
+      }
+      if (sc === 'gpio' || sc === 'led') {
+        return [
+          { text: `gpio / led - hardware GPIO and user LED control`, type: 'info' },
+          { text: `Usage: gpio <status | set 13 <0|1> | clear 13 | toggle 13>`, type: 'output' },
+          { text: `Usage: led <on | off | toggle | status>`, type: 'output' },
+        ];
+      }
+      if (sc === 'reg' || sc === 'regs') {
+        return [
+          { text: `reg - inspect or modify CPU core registers`, type: 'info' },
+          { text: `Usage: reg [regname] [value]`, type: 'output' },
+          { text: `Example: reg        => dumps all R0-R12, SP, LR, PC, xPSR`, type: 'output' },
+          { text: `Example: reg r0 42  => sets R0 to 42`, type: 'output' },
+        ];
+      }
       if (sc === 'go' || sc === 'call') {
         return [
           { text: `go / call - start application or invoke C function`, type: 'info' },
@@ -295,15 +372,22 @@ export class UBootEngine {
       { text: `  cmp [.b, .w, .l] a1 a2 cnt   - Memory compare`, type: 'output' },
       { text: `  crc32 addr cnt              - Calculate IEEE 802.3 CRC32 checksum`, type: 'output' },
       { text: `  base [addr]                 - Print or set address offset`, type: 'output' },
+      { text: `  mtest [start [end]]         - Test RAM memory patterns (walking 1s, checkerboard, address)`, type: 'output' },
       { text: `  bdinfo                      - Print board hardware information`, type: 'output' },
       { text: `  version                     - Print U-Boot and toolchain version`, type: 'output' },
       { text: `  printenv [name]             - Print environment variables`, type: 'output' },
       { text: `  setenv name [value]         - Set or delete environment variable`, type: 'output' },
+      { text: `  run varname...              - Run command script stored in environment variable`, type: 'output' },
       { text: `  echo [args...]              - Echo arguments to console ($var supported)`, type: 'output' },
       { text: `  symbols                     - List compiled C function symbols and entry points`, type: 'output' },
       { text: `  compile                     - Compile C source code and flash to simulator`, type: 'output' },
+      { text: `  disasm [sym|addr] [cnt]     - Disassemble Thumb-2 instructions at function or address`, type: 'output' },
       { text: `  go <addr|symbol> [args...]  - Execute C function at address (AAPCS convention)`, type: 'output' },
       { text: `  call <symbol> [args...]     - Alias for 'go' to invoke function by name`, type: 'output' },
+      { text: `  reg [name] [val]            - Dump or modify ARM Cortex-M core registers`, type: 'output' },
+      { text: `  gpio [status|set|clear|toggle] - Inspect or manipulate GPIOC hardware pins`, type: 'output' },
+      { text: `  led [on|off|toggle|status]  - Control physical board LED (PC13)`, type: 'output' },
+      { text: `  sleep <ms>                  - Delay execution for given milliseconds`, type: 'output' },
       { text: `  reset                       - Perform CPU core and peripheral hardware reset`, type: 'output' },
       { text: `  demo                        - Run full automated C function & memory CLI demo`, type: 'output' },
     ];
@@ -639,6 +723,7 @@ export class UBootEngine {
     // Flash binary into simulator
     armSimulator.flashBinary(result.binary);
     this.updateSymbols(result.symbols);
+    this.latestDisassembly = result.disassembly;
 
     lines.push({
       text: `Compilation successful! Flash binary size: ${result.flashSize} bytes.`,
@@ -755,6 +840,402 @@ export class UBootEngine {
 
     lines.push({ text: `\n=== Demonstration Complete: C function executed cleanly on U-Boot prompt! ===`, type: 'success' });
     return lines;
+  }
+
+  /**
+   * Run Command: Execute commands stored in an environment variable
+   */
+  private cmdRun(args: string[], currentCSource?: string): Array<{ text: string; type: UBootOutputLine['type'] }> {
+    if (args.length === 0) {
+      return [{ text: `Usage: run <varname> [varname2...]`, type: 'error' }];
+    }
+
+    const lines: Array<{ text: string; type: UBootOutputLine['type'] }> = [];
+    for (const varName of args) {
+      const script = this.env[varName];
+      if (!script) {
+        lines.push({ text: `## Error: "${varName}" not defined in environment`, type: 'error' });
+        continue;
+      }
+
+      lines.push({ text: `## Executing script '${varName}': "${script}"`, type: 'info' });
+      // Execute sub-commands chained by semicolon
+      const subCommands = script.split(';').map(c => c.trim()).filter(Boolean);
+      for (const subCmd of subCommands) {
+        // Prevent infinite recursive run calls
+        if (subCmd.startsWith('run ') && subCmd.includes(varName)) {
+          lines.push({ text: `## Error: Infinite recursion detected in run script '${varName}'`, type: 'error' });
+          break;
+        }
+        const out = this.dispatchSingleCommand(subCmd, currentCSource);
+        lines.push(...out);
+      }
+    }
+    return lines;
+  }
+
+  /**
+   * Memory Test Command: mtest [start [end [pattern]]]
+   */
+  private cmdMemoryTest(args: string[]): Array<{ text: string; type: UBootOutputLine['type'] }> {
+    let start = SRAM_BASE;
+    let end = SRAM_BASE + 0x400; // 1 KB default test range
+
+    if (args.length > 0) {
+      const pStart = this.parseAddressOrNumber(args[0]);
+      if (pStart === null) return [{ text: `Invalid start address: ${args[0]}`, type: 'error' }];
+      start = pStart + this.baseAddress;
+    }
+
+    if (args.length > 1) {
+      const pEnd = this.parseAddressOrNumber(args[1]);
+      if (pEnd === null) return [{ text: `Invalid end address: ${args[1]}`, type: 'error' }];
+      end = pEnd + this.baseAddress;
+    }
+
+    // Align to 4-byte boundaries
+    start = (start & ~3) >>> 0;
+    end = (end & ~3) >>> 0;
+
+    if (start >= end) {
+      return [
+        {
+          text: `Error: Start address (0x${start.toString(16)}) must be less than end address (0x${end.toString(16)})`,
+          type: 'error',
+        },
+      ];
+    }
+
+    // Ensure within SRAM boundary
+    if (start < SRAM_BASE || end > SRAM_BASE + SRAM_SIZE) {
+      return [
+        {
+          text: `Error: Memory test range [0x${start.toString(16)}, 0x${end.toString(16)}] is outside SRAM [0x${SRAM_BASE.toString(16)}, 0x${(SRAM_BASE + SRAM_SIZE).toString(16)}]`,
+          type: 'error',
+        },
+      ];
+    }
+
+    const testBytes = end - start;
+    const testWords = Math.floor(testBytes / 4);
+    const lines: Array<{ text: string; type: UBootOutputLine['type'] }> = [
+      {
+        text: `Testing RAM from 0x${start.toString(16).padStart(8, '0')} to 0x${end.toString(16).padStart(8, '0')} (${testBytes} bytes, ${testWords} words)...`,
+        type: 'info',
+      },
+    ];
+
+    // Backup original content
+    const backup = new Uint32Array(testWords);
+    for (let i = 0; i < testWords; i++) {
+      backup[i] = armSimulator.readMemory(start + i * 4, 4);
+    }
+
+    let errors = 0;
+
+    // Pattern 1: Walking 1s
+    let p1Errors = 0;
+    for (let i = 0; i < testWords; i++) {
+      const addr = start + i * 4;
+      const expected = (1 << (i % 32)) >>> 0;
+      armSimulator.writeMemory(addr, expected, 4);
+      const read = armSimulator.readMemory(addr, 4);
+      if (read !== expected) {
+        p1Errors++;
+      }
+    }
+    errors += p1Errors;
+    lines.push({
+      text: `  Pattern 1 (Walking 1s test):              ${p1Errors === 0 ? '[PASS - ' + testWords + ' words OK]' : '[FAIL - ' + p1Errors + ' errors]'}`,
+      type: p1Errors === 0 ? 'success' : 'error',
+    });
+
+    // Pattern 2: Alternating Checkerboard (0x55555555 / 0xAAAAAAAA)
+    let p2Errors = 0;
+    for (let i = 0; i < testWords; i++) {
+      const addr = start + i * 4;
+      const expected = (i % 2 === 0 ? 0x55555555 : 0xaaaaaaaa) >>> 0;
+      armSimulator.writeMemory(addr, expected, 4);
+      const read = armSimulator.readMemory(addr, 4);
+      if (read !== expected) {
+        p2Errors++;
+      }
+    }
+    errors += p2Errors;
+    lines.push({
+      text: `  Pattern 2 (Checkerboard 0x5555 / 0xAAAA): ${p2Errors === 0 ? '[PASS - ' + testWords + ' words OK]' : '[FAIL - ' + p2Errors + ' errors]'}`,
+      type: p2Errors === 0 ? 'success' : 'error',
+    });
+
+    // Pattern 3: Address Complement (~addr)
+    let p3Errors = 0;
+    for (let i = 0; i < testWords; i++) {
+      const addr = start + i * 4;
+      const expected = (~addr) >>> 0;
+      armSimulator.writeMemory(addr, expected, 4);
+      const read = armSimulator.readMemory(addr, 4);
+      if (read !== expected) {
+        p3Errors++;
+      }
+    }
+    errors += p3Errors;
+    lines.push({
+      text: `  Pattern 3 (Address Inversion ~ADDR):      ${p3Errors === 0 ? '[PASS - ' + testWords + ' words OK]' : '[FAIL - ' + p3Errors + ' errors]'}`,
+      type: p3Errors === 0 ? 'success' : 'error',
+    });
+
+    // Restore original RAM content
+    for (let i = 0; i < testWords; i++) {
+      armSimulator.writeMemory(start + i * 4, backup[i], 4);
+    }
+
+    if (errors === 0) {
+      lines.push({
+        text: `==> RAM Memory Test PASSED: 0 errors detected across ${testBytes} bytes.`,
+        type: 'success',
+      });
+    } else {
+      lines.push({
+        text: `==> RAM Memory Test FAILED: ${errors} data bus error(s) detected!`,
+        type: 'error',
+      });
+    }
+
+    return lines;
+  }
+
+  /**
+   * GPIO Peripheral Command: gpio <status | set 13 <0|1> | clear 13 | toggle 13>
+   */
+  private cmdGpio(args: string[]): Array<{ text: string; type: UBootOutputLine['type'] }> {
+    const sub = (args[0] || 'status').toLowerCase();
+
+    if (sub === 'status' || args.length === 0) {
+      const gpio = armSimulator.gpioC;
+      const pin13High = (gpio.odr & (1 << 13)) !== 0;
+      const ledOn = !pin13High;
+      return [
+        { text: `GPIOC Peripheral Status (STM32F103):`, type: 'info' },
+        { text: `  Base Address:    0x40020800`, type: 'output' },
+        { text: `  MODER:           0x${gpio.moder.toString(16).padStart(8, '0')}`, type: 'output' },
+        { text: `  ODR:             0x${gpio.odr.toString(16).padStart(8, '0')}`, type: 'output' },
+        {
+          text: `  Pin PC13 State:  ${pin13High ? 'HIGH (1)' : 'LOW (0)'} -> User LED: ${ledOn ? 'ON [Active Low]' : 'OFF'}`,
+          type: ledOn ? 'success' : 'output',
+        },
+        { text: `  Total Toggles:   ${gpio.toggleCount}`, type: 'output' },
+      ];
+    }
+
+    if (sub === 'set') {
+      const pin = parseInt(args[1] || '13', 10);
+      const val = parseInt(args[2] || '0', 10);
+      if (pin === 13) {
+        let newOdr = armSimulator.gpioC.odr;
+        if (val === 0) {
+          newOdr &= ~(1 << 13); // LOW = LED ON
+        } else {
+          newOdr |= (1 << 13); // HIGH = LED OFF
+        }
+        armSimulator.writeMemory(ADDR_GPIOC_ODR, newOdr, 4);
+        return [{ text: `gpio: set pin PC13 to ${val} (LED is now ${val === 0 ? 'ON' : 'OFF'})`, type: 'success' }];
+      }
+      return [{ text: `Only pin 13 is currently simulated on GPIOC.`, type: 'info' }];
+    }
+
+    if (sub === 'clear') {
+      const pin = parseInt(args[1] || '13', 10);
+      if (pin === 13) {
+        const newOdr = armSimulator.gpioC.odr & ~(1 << 13);
+        armSimulator.writeMemory(ADDR_GPIOC_ODR, newOdr, 4);
+        return [{ text: `gpio: cleared pin PC13 to 0 (LED is now ON)`, type: 'success' }];
+      }
+    }
+
+    if (sub === 'toggle') {
+      const pin = parseInt(args[1] || '13', 10);
+      if (pin === 13) {
+        const newOdr = armSimulator.gpioC.odr ^ (1 << 13);
+        armSimulator.writeMemory(ADDR_GPIOC_ODR, newOdr, 4);
+        const ledOn = (newOdr & (1 << 13)) === 0;
+        return [{ text: `gpio: toggled pin PC13 (new state: ${ledOn ? 'LOW -> LED ON' : 'HIGH -> LED OFF'})`, type: 'success' }];
+      }
+    }
+
+    return [{ text: `Usage: gpio <status | set 13 <0|1> | clear 13 | toggle 13>`, type: 'error' }];
+  }
+
+  /**
+   * User LED Command: led <on | off | toggle | status>
+   */
+  private cmdLed(args: string[]): Array<{ text: string; type: UBootOutputLine['type'] }> {
+    const action = (args[0] || 'status').toLowerCase();
+
+    if (action === 'on') {
+      const newOdr = armSimulator.gpioC.odr & ~(1 << 13); // PC13 is active low
+      armSimulator.writeMemory(ADDR_GPIOC_ODR, newOdr, 4);
+      return [{ text: `User LED (PC13) turned ON (Active LOW pin set to 0).`, type: 'success' }];
+    }
+
+    if (action === 'off') {
+      const newOdr = armSimulator.gpioC.odr | (1 << 13);
+      armSimulator.writeMemory(ADDR_GPIOC_ODR, newOdr, 4);
+      return [{ text: `User LED (PC13) turned OFF (Pin set to 1).`, type: 'info' }];
+    }
+
+    if (action === 'toggle') {
+      const newOdr = armSimulator.gpioC.odr ^ (1 << 13);
+      armSimulator.writeMemory(ADDR_GPIOC_ODR, newOdr, 4);
+      const isNowOn = (newOdr & (1 << 13)) === 0;
+      return [{ text: `User LED (PC13) toggled -> ${isNowOn ? 'ON' : 'OFF'}.`, type: isNowOn ? 'success' : 'output' }];
+    }
+
+    // Status
+    const isNowOn = (armSimulator.gpioC.odr & (1 << 13)) === 0;
+    return [
+      { text: `User LED (PC13) State: ${isNowOn ? 'ON' : 'OFF'}`, type: isNowOn ? 'success' : 'output' },
+      { text: `Usage: led <on | off | toggle | status>`, type: 'info' },
+    ];
+  }
+
+  /**
+   * Disassembly Command: disasm [symbol|address] [count]
+   */
+  private cmdDisassemble(args: string[]): Array<{ text: string; type: UBootOutputLine['type'] }> {
+    let targetAddr = FLASH_BASE + 8;
+    let count = 8;
+    let targetName = '';
+
+    if (args.length > 0) {
+      const token = args[0];
+      if (this.symbols[token] !== undefined) {
+        targetAddr = this.symbols[token];
+        targetName = token;
+      } else {
+        const parsed = this.parseAddressOrNumber(token);
+        if (parsed !== null) {
+          targetAddr = parsed;
+        } else {
+          return [{ text: `Unknown symbol or invalid address: ${token}`, type: 'error' }];
+        }
+      }
+    }
+
+    if (args.length > 1) {
+      const c = parseInt(args[1], 10);
+      if (!isNaN(c) && c > 0) {
+        count = Math.min(c, 32);
+      }
+    }
+
+    targetAddr = (targetAddr & ~1) >>> 0; // Clear thumb bit
+
+    const lines: Array<{ text: string; type: UBootOutputLine['type'] }> = [
+      {
+        text: `Disassembly of section .text at 0x${targetAddr.toString(16).padStart(8, '0')}${targetName ? ' <' + targetName + '>' : ''}:`,
+        type: 'info',
+      },
+      { text: `  ADDRESS     OPCODE    INSTRUCTION`, type: 'info' },
+      { text: `  ----------  --------  -----------------------------`, type: 'output' },
+    ];
+
+    // Check if we have matching lines in latestDisassembly
+    if (this.latestDisassembly.length > 0) {
+      const matchingIdx = this.latestDisassembly.findIndex(d => (d.address & ~1) >= targetAddr);
+      if (matchingIdx !== -1) {
+        const slice = this.latestDisassembly.slice(matchingIdx, matchingIdx + count);
+        for (const item of slice) {
+          lines.push({
+            text: `  0x${item.address.toString(16).padStart(8, '0')}  ${item.hex.padEnd(8, ' ')}  ${item.mnemonic.padEnd(6, ' ')} ${item.operands}`,
+            type: 'output',
+          });
+        }
+        return lines;
+      }
+    }
+
+    // Fallback: decode raw memory from simulator
+    for (let i = 0; i < count; i++) {
+      const addr = targetAddr + i * 2;
+      const op16 = armSimulator.readMemory(addr, 2);
+      const hex = op16.toString(16).padStart(4, '0');
+      let mnemonic = 'nop';
+      let operands = '';
+
+      if (op16 === 0x4770) {
+        mnemonic = 'bx';
+        operands = 'lr';
+      } else if (op16 === 0x1840) {
+        mnemonic = 'adds';
+        operands = 'r0, r0, r1';
+      } else if (op16 === 0x1a40) {
+        mnemonic = 'subs';
+        operands = 'r0, r0, r1';
+      } else if (op16 === 0x4348) {
+        mnemonic = 'muls';
+        operands = 'r0, r1';
+      } else if ((op16 & 0xff00) === 0x2000) {
+        mnemonic = 'movs';
+        operands = `r0, #${op16 & 0xff}`;
+      } else if ((op16 & 0xff00) === 0x3000) {
+        mnemonic = 'adds';
+        operands = `r0, #${op16 & 0xff}`;
+      } else if (op16 === 0xbf00) {
+        mnemonic = 'nop';
+      } else {
+        mnemonic = '.short';
+        operands = `0x${hex}`;
+      }
+
+      lines.push({
+        text: `  0x${addr.toString(16).padStart(8, '0')}  ${hex.padEnd(8, ' ')}  ${mnemonic.padEnd(6, ' ')} ${operands}`,
+        type: 'output',
+      });
+    }
+
+    return lines;
+  }
+
+  /**
+   * Register Command: reg [register] [value]
+   */
+  private cmdRegisters(args: string[]): Array<{ text: string; type: UBootOutputLine['type'] }> {
+    const regs = armSimulator.registers;
+
+    if (args.length >= 2) {
+      const regName = args[0].toLowerCase();
+      const val = this.parseAddressOrNumber(args[1]);
+      if (val === null) {
+        return [{ text: `Invalid register value: ${args[1]}`, type: 'error' }];
+      }
+
+      if (regName in regs && regName !== 'psr') {
+        (regs as any)[regName] = val >>> 0;
+        return [{ text: `Register ${regName.toUpperCase()} set to 0x${(val >>> 0).toString(16).padStart(8, '0')}`, type: 'success' }];
+      }
+      return [{ text: `Unknown register: ${regName}`, type: 'error' }];
+    }
+
+    const hex = (v: number) => (v >>> 0).toString(16).padStart(8, '0');
+    const psr = regs.psr;
+
+    return [
+      { text: `ARM Cortex-M3 Core Register File:`, type: 'info' },
+      { text: `  r0: ${hex(regs.r0)}   r1: ${hex(regs.r1)}   r2: ${hex(regs.r2)}   r3: ${hex(regs.r3)}`, type: 'output' },
+      { text: `  r4: ${hex(regs.r4)}   r5: ${hex(regs.r5)}   r6: ${hex(regs.r6)}   r7: ${hex(regs.r7)}`, type: 'output' },
+      { text: `  r8: ${hex(regs.r8)}   r9: ${hex(regs.r9)}  r10: ${hex(regs.r10)}  r11: ${hex(regs.r11)}`, type: 'output' },
+      { text: ` r12: ${hex(regs.r12)}   sp: ${hex(regs.sp)}   lr: ${hex(regs.lr)}   pc: ${hex(regs.pc)}`, type: 'output' },
+      { text: ` xPSR: [N=${psr.n ? 1 : 0} Z=${psr.z ? 1 : 0} C=${psr.c ? 1 : 0} V=${psr.v ? 1 : 0}]  Cycle Count: ${armSimulator.cycleCount}`, type: 'info' },
+      { text: `Tip: Set a register via 'reg <r0-r12|sp|pc> <value>'`, type: 'info' },
+    ];
+  }
+
+  /**
+   * Sleep Command: sleep <ms>
+   */
+  private cmdSleep(args: string[]): Array<{ text: string; type: UBootOutputLine['type'] }> {
+    const ms = parseInt(args[0] || '1000', 10);
+    return [{ text: `Sleeping for ${ms} ms... Done.`, type: 'info' }];
   }
 }
 

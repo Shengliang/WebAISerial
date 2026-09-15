@@ -10,7 +10,8 @@ import {
   Sparkles,
   ChevronRight,
   Database,
-  ArrowRight
+  ArrowRight,
+  Zap,
 } from 'lucide-react';
 import { uboot, UBootOutputLine } from '../utils/armSimulator/ubootEngine';
 
@@ -147,8 +148,13 @@ export const UBootConsole: React.FC<UBootConsoleProps> = ({
     { label: 'symbols', cmd: 'symbols', icon: Layers, color: 'text-indigo-300 border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20' },
     { label: 'go add 15 27', cmd: 'go add 15 27', icon: Play, color: 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20' },
     { label: 'call add 40 2', cmd: 'call add 40 2', icon: ArrowRight, color: 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20' },
-    { label: 'md.l 0x20000000 4', cmd: 'md.l 0x20000000 4', icon: Database, color: 'text-sky-300 border-sky-500/40 bg-sky-500/10 hover:bg-sky-500/20' },
-    { label: 'mw.l 0x20000000 0xDEADBEEF', cmd: 'mw.l 0x20000000 0xDEADBEEF', icon: Database, color: 'text-purple-300 border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20' },
+    { label: 'run bootcmd', cmd: 'run bootcmd', icon: Play, color: 'text-amber-300 border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20' },
+    { label: 'mtest', cmd: 'mtest 0x20000000 0x20000400', icon: Database, color: 'text-sky-300 border-sky-500/40 bg-sky-500/10 hover:bg-sky-500/20' },
+    { label: 'disasm add', cmd: 'disasm add', icon: Cpu, color: 'text-purple-300 border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20' },
+    { label: 'led toggle', cmd: 'led toggle', icon: Zap, color: 'text-yellow-300 border-yellow-500/40 bg-yellow-500/10 hover:bg-yellow-500/20' },
+    { label: 'reg', cmd: 'reg', icon: TerminalIcon, color: 'text-slate-300 border-slate-700 bg-slate-800/80 hover:bg-slate-800' },
+    { label: 'md.l 0x20000000 4', cmd: 'md.l 0x20000000 4', icon: Database, color: 'text-teal-300 border-teal-500/40 bg-teal-500/10 hover:bg-teal-500/20' },
+    { label: 'mw.l 0x20000000 0xDEADBEEF', cmd: 'mw.l 0x20000000 0xDEADBEEF', icon: Database, color: 'text-pink-300 border-pink-500/40 bg-pink-500/10 hover:bg-pink-500/20' },
     { label: 'bdinfo', cmd: 'bdinfo', icon: TerminalIcon, color: 'text-slate-300 border-slate-700 bg-slate-800/80 hover:bg-slate-800' },
     { label: 'reset', cmd: 'reset', icon: RotateCcw, color: 'text-rose-300 border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20' },
   ];
@@ -214,7 +220,7 @@ export const UBootConsole: React.FC<UBootConsoleProps> = ({
 
       {/* Collapsible Reference / Cheat Sheet */}
       {showCheatSheet && (
-        <div className="bg-slate-900/95 border-b border-slate-800 p-3 text-[11px] text-slate-300 grid grid-cols-1 md:grid-cols-2 gap-2 animate-in fade-in duration-150 font-sans">
+        <div className="bg-slate-900/95 border-b border-slate-800 p-3 text-[11px] text-slate-300 grid grid-cols-1 md:grid-cols-3 gap-2 animate-in fade-in duration-150 font-sans">
           <div className="bg-slate-950/70 p-2 rounded border border-slate-800/80">
             <span className="font-semibold text-amber-300 block mb-1">
               🚀 Calling C Functions from U-Boot:
@@ -233,29 +239,51 @@ export const UBootConsole: React.FC<UBootConsoleProps> = ({
                 <span className="text-cyan-300">call add 40 2</span> - Returns 42 directly in R0
               </li>
               <li>
-                <span className="text-cyan-300">go 0x08000008 100 250</span> - Jump directly to hex address
+                <span className="text-cyan-300">disasm add</span> - Disassemble Thumb-2 instructions
               </li>
             </ul>
           </div>
           <div className="bg-slate-950/70 p-2 rounded border border-slate-800/80">
             <span className="font-semibold text-emerald-300 block mb-1">
-              💾 Memory Read & Write Commands:
+              💾 Memory & Diagnostics Commands:
             </span>
             <ul className="list-disc list-inside space-y-0.5 text-slate-300 font-mono text-[10px]">
               <li>
                 <span className="text-cyan-300">md.l 0x20000000 4</span> - Display 4 32-bit words from SRAM
               </li>
               <li>
-                <span className="text-cyan-300">md.b 0x20000000 16</span> - Byte dump with ASCII characters
+                <span className="text-cyan-300">mw.l 0x20000000 0xDEADBEEF</span> - Write 32-bit word
               </li>
               <li>
-                <span className="text-cyan-300">mw.l 0x20000000 0x12345678</span> - Write 32-bit word
+                <span className="text-cyan-300">mtest 0x20000000 0x20000400</span> - Run walking 1s & checkerboard RAM test
               </li>
               <li>
                 <span className="text-cyan-300">cp.l 0x20000000 0x20000010 4</span> - Copy memory block
               </li>
               <li>
                 <span className="text-cyan-300">bdinfo</span> - Hardware memory map & CPU frequency
+              </li>
+            </ul>
+          </div>
+          <div className="bg-slate-950/70 p-2 rounded border border-slate-800/80">
+            <span className="font-semibold text-sky-300 block mb-1">
+              ⚡ Scripting & Hardware Control:
+            </span>
+            <ul className="list-disc list-inside space-y-0.5 text-slate-300 font-mono text-[10px]">
+              <li>
+                <span className="text-cyan-300">run bootcmd</span> - Execute scripted command sequence
+              </li>
+              <li>
+                <span className="text-cyan-300">reg</span> - Dump R0-R12, SP, LR, PC & flags
+              </li>
+              <li>
+                <span className="text-cyan-300">led toggle</span> - Toggle physical board PC13 LED
+              </li>
+              <li>
+                <span className="text-cyan-300">gpio status</span> - Inspect GPIOC pin states & counters
+              </li>
+              <li>
+                <span className="text-cyan-300">printenv</span> - Inspect all environment variables
               </li>
             </ul>
           </div>

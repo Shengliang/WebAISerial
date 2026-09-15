@@ -263,4 +263,66 @@ int main(void) {
 }
 `,
   },
+  {
+    id: 'uboot_c_math_suite',
+    name: 'U-Boot Callable Math & AAPCS Algorithm Suite',
+    description:
+      'Collection of pure C functions designed for direct execution from the U-Boot command line (add, subtract, multiply, square, bitwise operations) with AAPCS register calling convention.',
+    code: `/**
+ * ====================================================================
+ *   U-Boot C Callable Math & AAPCS Algorithm Suite
+ * ====================================================================
+ *   This file exports callable C functions following the ARM Architecture
+ *   Procedure Call Standard (AAPCS):
+ *     - Arguments: passed in registers R0, R1, R2, R3
+ *     - Return value: returned in register R0
+ *
+ *   Interactive U-Boot Shell Usage:
+ *     => compile
+ *     => symbols
+ *     => disasm add
+ *     => go add 25 17         (R0=25, R1=17 => returns 42)
+ *     => go sub 100 42        (R0=100, R1=42 => returns 58)
+ *     => go mul 6 7           (R0=6, R1=7 => returns 42)
+ *     => go square 9          (R0=9 => returns 81)
+ *     => go bitwise_and 255 15(R0=255, R1=15 => returns 15)
+ *     => run selftest
+ * ====================================================================
+ */
+
+#include <stdint.h>
+
+/* AAPCS: int add(int a [R0], int b [R1]) -> R0 */
+int add(int a, int b) {
+    return a + b;
+}
+
+/* AAPCS: int sub(int a [R0], int b [R1]) -> R0 */
+int sub(int a, int b) {
+    return a - b;
+}
+
+/* AAPCS: int mul(int a [R0], int b [R1]) -> R0 */
+int mul(int a, int b) {
+    return a * b;
+}
+
+/* AAPCS: int square(int x [R0]) -> R0 */
+int square(int x) {
+    return x * x;
+}
+
+/* AAPCS: int bitwise_and(int a [R0], int b [R1]) -> R0 */
+int bitwise_and(int a, int b) {
+    return a & b;
+}
+
+/* Standard firmware entry point */
+int main(void) {
+    // Computes sample validation check: add(40, 2) == 42
+    int result = add(40, 2);
+    return result;
+}
+`,
+  },
 ];
