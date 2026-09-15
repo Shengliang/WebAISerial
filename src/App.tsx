@@ -20,6 +20,7 @@ import { ScriptAutomationModal } from './components/ScriptAutomationModal';
 import { SessionArchiveModal } from './components/SessionArchiveModal';
 import { SyncStatusModal } from './components/SyncStatusModal';
 import { TerminalView } from './components/TerminalView';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { DEFAULT_MACROS } from './data/defaultMacros';
 import {
   CommandMacro,
@@ -729,6 +730,9 @@ export default function App() {
           }}
         />
       )}
+
+      {/* Progressive Web App (PWA) Offline & Reconnection Indicator */}
+      <OfflineIndicator />
     </div>
   );
 }

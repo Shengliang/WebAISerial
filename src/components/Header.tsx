@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { LiveSessionState, SerialDevice, UserProfile } from '../types';
 import { AppSyncState, AVAILABLE_USERS } from '../utils/syncManager';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface HeaderProps {
   devices: SerialDevice[];
@@ -199,6 +200,9 @@ export const Header: React.FC<HeaderProps> = ({
             <Cpu className="w-3.5 h-3.5 text-cyan-400" />
             <span>ARM C Simulator</span>
           </button>
+
+          {/* Desktop App Install Button (PWA) */}
+          <PWAInstallButton />
 
           {/* Flash & Reboot Workflow Button */}
           <button
