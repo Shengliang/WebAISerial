@@ -162,22 +162,74 @@ class SerialManager {
   // --- WebSerial Implementation ---
   private async connectWebSerial(device: SerialDevice): Promise<void> {
     if (!isWebSerialSupported()) {
-      throw new Error('WebSerial API is not supported in this browser. Please use Chrome, Edge, or a Virtual Device profile.');
+      throw new Error(
+        'WebSerial API is not supported in this browser. Please use Chrome, Edge, or Opera on desktop.'
+      );
     }
 
     const serial = (navigator as any).serial;
-    const port = await serial.requestPort();
-    
-    await port.open({
-      baudRate: device.config.baudRate,
-      dataBits: device.config.dataBits,
-      stopBits: device.config.stopBits,
-      parity: device.config.parity,
-      flowControl: device.config.flowControl,
-    });
+    let port: any;
+    try {
+      port = await serial.requestPort();
+    } catch (reqErr: any) {
+      if (reqErr.name === 'NotFoundError') {
+        throw new Error('Port selection cancelled. Please pick your USB serial device to connect.');
+      }
+      if (
+        reqErr.name === 'SecurityError' ||
+        (reqErr.message && reqErr.message.includes('disallowed by permissions policy'))
+      ) {
+        throw new Error(
+          'WebSerial USB access is restricted inside iframe. Please click "Open in New Tab" in the top bar to connect to your USB device directly.'
+        );
+      }
+      throw reqErr;
+    }
+
+    // Identify USB chip from Vendor ID if available
+    const info = port.getInfo ? port.getInfo() : {};
+    let hardwareName = device.name;
+    if (info.usbVendorId === 0x0403) {
+      hardwareName = 'FTDI USB-UART (FT5QW55Z2)';
+    } else if (info.usbVendorId === 0x10c4) {
+      hardwareName = 'Silicon Labs CP210x UART';
+    } else if (info.usbVendorId === 0x1a86) {
+      hardwareName = 'WCH CH340 USB-Serial';
+    } else if (info.usbVendorId === 0x303a) {
+      hardwareName = 'Espressif USB Serial/JTAG';
+    } else if (info.usbVendorId === 0x2e8a) {
+      hardwareName = 'Raspberry Pi RP2040 UART';
+    } else if (info.usbVendorId === 0x0483) {
+      hardwareName = 'STM32 ST-Link VCP';
+    } else if (info.usbVendorId) {
+      hardwareName = `USB Serial (VID:0x${info.usbVendorId.toString(16).padStart(4, '0')})`;
+    }
+
+    try {
+      await port.open({
+        baudRate: device.config.baudRate,
+        dataBits: device.config.dataBits,
+        stopBits: device.config.stopBits,
+        parity: device.config.parity,
+        flowControl: device.config.flowControl,
+      });
+    } catch (openErr: any) {
+      const msg = openErr.message || '';
+      if (
+        msg.includes('already open') ||
+        msg.includes('busy') ||
+        msg.includes('Access denied') ||
+        msg.includes('Failed to open')
+      ) {
+        throw new Error(
+          `Port is locked: please exit 'screen' in macOS Terminal (press Ctrl-A then Ctrl-\\ or run 'killall screen') before opening in the web app.`
+        );
+      }
+      throw openErr;
+    }
 
     const activeConn: ActiveConnection = {
-      device: { ...device, status: 'connected' },
+      device: { ...device, name: hardwareName, status: 'connected', error: undefined },
       port,
       rxWindowBytes: 0,
       txWindowBytes: 0,
@@ -188,7 +240,12 @@ class SerialManager {
     this.startThroughputMonitor(activeConn);
     this.onStatusChange(activeConn.device);
 
-    this.onLog(device.id, `\x1b[32m[SYSTEM] WebSerial connected @ ${device.config.baudRate} 8-N-1\x1b[0m\r\n`, undefined, 'RX');
+    this.onLog(
+      device.id,
+      `\x1b[32m[SYSTEM] WebSerial connected to ${hardwareName} @ ${device.config.baudRate} 8-N-1\x1b[0m\r\n`,
+      undefined,
+      'RX'
+    );
 
     // Read loop
     this.startWebSerialReadLoop(activeConn);

@@ -7,6 +7,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiDocumentationModal } from './components/ApiDocumentationModal';
 import { AnalyticsDashboardModal } from './components/AnalyticsDashboardModal';
 import { ArmSimulatorModal } from './components/ArmSimulatorModal';
+import { CleanSerialConsole } from './components/CleanSerialConsole';
 import { CommandInputBar } from './components/CommandInputBar';
 import { DeviceConnectionBar } from './components/DeviceConnectionBar';
 import { ExportModal } from './components/ExportModal';
@@ -41,12 +42,12 @@ import { AppSyncState, AVAILABLE_USERS, syncManager } from './utils/syncManager'
 const INITIAL_DEVICES: SerialDevice[] = [
   {
     id: 'dev-1',
-    name: 'ESP32-S3 Bench #1',
-    portType: 'virtual',
+    name: 'USB Serial Device',
+    portType: 'webserial',
     virtualProfile: 'esp32',
     status: 'disconnected',
     config: {
-      baudRate: 115200,
+      baudRate: 230400,
       dataBits: 8,
       stopBits: 1,
       parity: 'none',
@@ -72,6 +73,7 @@ export default function App() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [macros, setMacros] = useState<CommandMacro[]>(DEFAULT_MACROS);
   const [isPaused, setIsPaused] = useState(false);
+  const [viewMode, setViewMode] = useState<'clean' | 'workbench'>('clean');
 
   // Sync and User Auth state
   const [syncState, setSyncState] = useState<AppSyncState>(syncManager.getState());
@@ -213,7 +215,7 @@ export default function App() {
             'MacBook Host',
             {
               name: dev ? dev.name : 'Serial Bench',
-              baudRate: dev ? dev.config.baudRate : 115200,
+              baudRate: dev ? dev.config.baudRate : 230400,
               status: dev ? dev.status : 'connected',
             },
             []
@@ -464,7 +466,7 @@ export default function App() {
       virtualProfile: nextProfile,
       status: 'disconnected',
       config: {
-        baudRate: 115200,
+        baudRate: 230400,
         dataBits: 8,
         stopBits: 1,
         parity: 'none',
@@ -543,6 +545,21 @@ export default function App() {
 
   const isReader = liveState.isLive && liveState.role === 'reader';
 
+  if (viewMode === 'clean' && activeDevice) {
+    return (
+      <CleanSerialConsole
+        device={activeDevice}
+        logs={logs}
+        onConnect={handleConnect}
+        onDisconnect={handleDisconnect}
+        onUpdateConfig={handleUpdateConfig}
+        onSendCommand={handleSendCommand}
+        onClearLogs={handleClearLogs}
+        onSwitchToWorkbench={() => setViewMode('workbench')}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans select-none">
       {/* Top Application Header */}
@@ -573,6 +590,7 @@ export default function App() {
         liveState={liveState}
         activeTaskId={activeTaskId}
         activeSessionId={activeSessionId}
+        onSwitchToClean={() => setViewMode('clean')}
       />
 
       {/* Real-time 1-Writer N-Readers Live Session Top Banner */}
@@ -744,7 +762,7 @@ export default function App() {
               currentUser.name || 'Engineer A',
               {
                 name: activeDevice ? activeDevice.name : 'Virtual Serial Bench',
-                baudRate: activeDevice ? activeDevice.config.baudRate : 115200,
+                baudRate: activeDevice ? activeDevice.config.baudRate : 230400,
                 status: activeDevice ? activeDevice.status : 'connected',
               },
               logs.slice(-200)

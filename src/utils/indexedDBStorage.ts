@@ -436,7 +436,7 @@ class IndexedDBStorageService {
         monthKey,
         deviceId: 'dev-1',
         deviceName: 'ESP32-S3 Board',
-        baudRate: 115200,
+        baudRate: 230400,
         firmwareImage: {
           name: `firmware_v${(2 + (i % 5)) * 0.5 + 1.0}.bin`,
           size: 492040 + i * 1024,

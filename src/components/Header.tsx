@@ -8,6 +8,7 @@ import {
   Cpu,
   Database,
   Download,
+  ExternalLink,
   FileCode2,
   HardDrive,
   Keyboard,
@@ -51,6 +52,7 @@ interface HeaderProps {
   liveState?: LiveSessionState;
   activeTaskId?: string;
   activeSessionId?: string;
+  onSwitchToClean?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -77,6 +79,7 @@ export const Header: React.FC<HeaderProps> = ({
   liveState,
   activeTaskId = 'TASK-FW-2026-0913',
   activeSessionId = 'SESS-0042',
+  onSwitchToClean,
 }) => {
   const [userDropdownOpen, setUserDropdownOpen] = React.useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
@@ -92,6 +95,7 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   const effectiveOnline = syncState.isOnline && !syncState.isSimulatedOffline;
+  const isIframe = typeof window !== 'undefined' && window.self !== window.top;
 
   return (
     <header className="bg-slate-900 border-b border-slate-800 text-slate-200 select-none">
@@ -273,6 +277,32 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Keyboard className="w-3.5 h-3.5" />
           </button>
+
+          {/* Switch to Clean Console */}
+          {onSwitchToClean && (
+            <button
+              onClick={onSwitchToClean}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-cyan-600/90 hover:bg-cyan-500 text-white shadow-sm transition border border-cyan-500"
+              title="Switch to Clean Serial Console Interface"
+            >
+              <Terminal className="w-3.5 h-3.5" />
+              <span>Clean Console</span>
+            </button>
+          )}
+
+          {/* Open in Dedicated Tab (for WebSerial USB Access) */}
+          {isIframe && (
+            <a
+              href={typeof window !== 'undefined' ? window.location.href : '#'}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white shadow-sm transition border border-cyan-500"
+              title="Open the app in a dedicated browser tab to enable direct USB/UART WebSerial hardware access"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Open in New Tab</span>
+            </a>
+          )}
 
           {/* User Profile Switcher */}
           <div className="relative" ref={dropdownRef}>

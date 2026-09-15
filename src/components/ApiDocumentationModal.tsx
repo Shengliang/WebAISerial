@@ -274,7 +274,7 @@ const port = await navigator.serial.requestPort({
 
 // 2. Open port with baud rate & framing parameters
 await port.open({
-  baudRate: 115200,
+  baudRate: 230400,
   dataBits: 8,
   stopBits: 1,
   parity: "none",

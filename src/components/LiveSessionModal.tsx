@@ -271,7 +271,7 @@ export const LiveSessionModal: React.FC<LiveSessionModalProps> = ({
                       <div>
                         <span className="text-slate-400">Active Serial Port:</span>
                         <div className="text-slate-200 mt-0.5">
-                          {activeDevice?.name || 'ESP32 Serial Device'} ({activeDevice?.baudRate || 115200} bps)
+                          {activeDevice?.name || 'ESP32 Serial Device'} ({activeDevice?.baudRate || 230400} bps)
                         </div>
                       </div>
                       <div>
@@ -441,7 +441,7 @@ export const LiveSessionModal: React.FC<LiveSessionModalProps> = ({
                     <div className="text-right">
                       <span className="text-slate-400">Configured Baud:</span>
                       <div className="font-mono text-cyan-300 mt-0.5">
-                        {activeDevice ? `${activeDevice.baudRate} bps` : '115200 bps'}
+                        {activeDevice ? `${activeDevice.baudRate} bps` : '230400 bps'}
                       </div>
                     </div>
                   </div>
@@ -509,7 +509,7 @@ export const LiveSessionModal: React.FC<LiveSessionModalProps> = ({
                       <div>
                         <span className="text-slate-400">Host Baud Rate:</span>
                         <div className="font-mono text-slate-200 mt-0.5">
-                          {liveState.deviceInfo?.baudRate || 115200} bps
+                          {liveState.deviceInfo?.baudRate || 230400} bps
                         </div>
                       </div>
                     </div>
