@@ -116,6 +116,8 @@ export default function App() {
   // Keep references to prevent stale closures in async callbacks
   const devicesRef = useRef(devices);
   devicesRef.current = devices;
+  const activeDeviceIdRef = useRef(activeDeviceId);
+  activeDeviceIdRef.current = activeDeviceId;
   const isPausedRef = useRef(isPaused);
   isPausedRef.current = isPaused;
 
@@ -155,11 +157,72 @@ export default function App() {
       }
     });
 
+    // When receiving remote commands from Linux Claude / Remote API, execute on physical serial port
+    const unsubscribeRemoteCmd = liveSessionClient.onRemoteCommand(async cmd => {
+      const targetDevId = activeDeviceIdRef.current;
+      const currentDev =
+        devicesRef.current.find(d => d.id === targetDevId) || devicesRef.current[0];
+      if (!currentDev) return;
+
+      const senderTag = cmd.sender || 'Claude (Linux)';
+      const cmdEntry: LogEntry = {
+        id: 'remote-cmd-' + Date.now(),
+        timestamp: cmd.timestamp || Date.now(),
+        deviceId: currentDev.id,
+        deviceName: currentDev.name,
+        level: 'COMMAND',
+        direction: 'TX',
+        text: `[Remote: ${senderTag}] ${cmd.command.trim()}`,
+      };
+      setLogs(prev => [...prev.slice(-2500), cmdEntry]);
+
+      try {
+        if (cmd.isHex) {
+          const bytes = parseHexInput(cmd.command);
+          if (bytes.length > 0) {
+            await serialService.send(currentDev.id, bytes);
+          }
+        } else {
+          const toSend =
+            cmd.command.endsWith('\n') || cmd.command.endsWith('\r')
+              ? cmd.command
+              : cmd.command + '\n';
+          await serialService.send(currentDev.id, toSend);
+        }
+      } catch (err) {
+        console.error('Failed to execute remote command from Claude on serial port:', err);
+      }
+    });
+
     const unsubscribeClear = liveSessionClient.onLogsCleared(() => {
       if (liveStateRef.current.role === 'reader') {
         setLogs([]);
       }
     });
+
+    // Auto-initialize background host session so hardware serial logs immediately sync to server.ts
+    // This allows Linux Claude to query /api/logs or /api/logs/stream without requiring manual UI clicks
+    const autoInitHostTimer = setTimeout(() => {
+      if (!liveSessionClient.getState().isLive) {
+        const dev = devicesRef.current[0];
+        liveSessionClient
+          .startHostSession(
+            'BENCH-DEFAULT',
+            'MacBook Bench Serial Console',
+            'TASK-LIVE-BENCH',
+            'MacBook Host',
+            {
+              name: dev ? dev.name : 'Serial Bench',
+              baudRate: dev ? dev.config.baudRate : 115200,
+              status: dev ? dev.status : 'connected',
+            },
+            []
+          )
+          .catch(() => {
+            // Benign if offline or initializing
+          });
+      }
+    }, 800);
 
     // Check URL parameters on mount for live session invite
     if (typeof window !== 'undefined') {
@@ -171,10 +234,12 @@ export default function App() {
     }
 
     return () => {
+      clearTimeout(autoInitHostTimer);
       unsubscribeSync();
       unsubscribeLive();
       unsubscribeLogs();
       unsubscribeCmd();
+      unsubscribeRemoteCmd();
       unsubscribeClear();
     };
   }, []);

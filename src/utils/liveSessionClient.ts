@@ -14,12 +14,19 @@ export type LiveCommandListener = (cmd: {
   timestamp: number;
   writerName: string;
 }) => void;
+export type RemoteCommandListener = (cmd: {
+  command: string;
+  isHex: boolean;
+  sender?: string;
+  timestamp: number;
+}) => void;
 
 class LiveSessionClient {
   private ws: WebSocket | null = null;
   private listeners: Set<LiveSessionListener> = new Set();
   private logsListeners: Set<LiveLogsListener> = new Set();
   private commandListeners: Set<LiveCommandListener> = new Set();
+  private remoteCommandListeners: Set<RemoteCommandListener> = new Set();
   private logsClearListeners: Set<() => void> = new Set();
 
   private state: LiveSessionState = {
@@ -68,6 +75,11 @@ class LiveSessionClient {
   public onWriterCommand(listener: LiveCommandListener): () => void {
     this.commandListeners.add(listener);
     return () => this.commandListeners.delete(listener);
+  }
+
+  public onRemoteCommand(listener: RemoteCommandListener): () => void {
+    this.remoteCommandListeners.add(listener);
+    return () => this.remoteCommandListeners.delete(listener);
   }
 
   public onLogsCleared(listener: () => void): () => void {
@@ -259,6 +271,12 @@ class LiveSessionClient {
           };
           this.notifyState();
           this.commandListeners.forEach(fn => fn(payload));
+          break;
+        }
+
+        case 'remote_command_to_hardware': {
+          // Received command from remote API / Linux Claude to execute on physical serial
+          this.remoteCommandListeners.forEach(fn => fn(payload));
           break;
         }
 

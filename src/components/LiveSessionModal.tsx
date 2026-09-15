@@ -51,7 +51,9 @@ export const LiveSessionModal: React.FC<LiveSessionModalProps> = ({
   onJoinAsReader,
   onLeaveSession,
 }) => {
-  const [activeTab, setActiveTab] = useState<'broadcast' | 'join' | 'architecture'>('broadcast');
+  const [activeTab, setActiveTab] = useState<'broadcast' | 'join' | 'remote_api' | 'architecture'>(
+    'broadcast'
+  );
 
   // Broadcast form state
   const [broadcastSessionId, setBroadcastSessionId] = useState(
@@ -72,6 +74,13 @@ export const LiveSessionModal: React.FC<LiveSessionModalProps> = ({
   const [loadingRooms, setLoadingRooms] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
+
+  const copySnippet = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedSnippet(id);
+    setTimeout(() => setCopiedSnippet(null), 2000);
+  };
 
   // Fetch available rooms
   const fetchActiveRooms = async () => {
@@ -197,6 +206,18 @@ export const LiveSessionModal: React.FC<LiveSessionModalProps> = ({
                 ? 'Active Observer View'
                 : 'Join Team Session (Reader)'}
             </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('remote_api')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition whitespace-nowrap ${
+              activeTab === 'remote_api'
+                ? 'bg-cyan-950/60 text-cyan-300 font-medium border border-cyan-800'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Terminal className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Remote Linux / Claude API</span>
           </button>
 
           <button
@@ -620,6 +641,212 @@ export const LiveSessionModal: React.FC<LiveSessionModalProps> = ({
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* TAB: REMOTE LINUX / CLAUDE API ACCESS */}
+          {activeTab === 'remote_api' && (
+            <div className="space-y-4 leading-relaxed text-slate-300 text-xs">
+              <div className="p-3.5 rounded-lg bg-slate-950/70 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Terminal className="w-4 h-4 text-cyan-400" />
+                    <span className="font-semibold text-slate-200">
+                      Remote Console API for Linux &amp; AI Agents (Claude)
+                    </span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-800">
+                    CORS Enabled • REST • SSE • WebSockets
+                  </span>
+                </div>
+                <p className="text-slate-400 text-[11px]">
+                  When this app runs on your MacBook with hardware plugged into USB, any external machine (e.g. a Linux machine running Claude or an automated test pipeline) can read hardware logs in real time and inject commands remotely over HTTP/SSE.
+                </p>
+                <div className="pt-1 flex items-center gap-2 text-[11px] text-slate-400">
+                  <span className="font-semibold text-slate-300">Target Host URL:</span>
+                  <code className="px-2 py-0.5 rounded bg-slate-900 text-cyan-300 font-mono border border-slate-800">
+                    {typeof window !== 'undefined' ? window.location.origin : 'http://<macbook-ip>:3000'}
+                  </code>
+                </div>
+              </div>
+
+              {/* Snippet 1: Real-time Live Stream via SSE */}
+              <div className="space-y-1.5 bg-slate-950 p-3 rounded-lg border border-slate-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-semibold text-slate-200">
+                    <Zap className="w-3.5 h-3.5 text-amber-400" />
+                    <span>1. Stream Live Serial Output in Real-Time (Server-Sent Events)</span>
+                  </div>
+                  <button
+                    onClick={() =>
+                      copySnippet(
+                        `curl -N ${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/api/logs/stream?format=text`,
+                        'curl-sse'
+                      )
+                    }
+                    className="flex items-center gap-1 px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 transition text-[10px]"
+                  >
+                    {copiedSnippet === 'curl-sse' ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-400" />
+                        <span className="text-emerald-400">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>Copy curl</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="text-slate-400 text-[11px]">
+                  Claude or your Linux shell can stream incoming hardware console messages live:
+                </p>
+                <pre className="bg-slate-900 p-2.5 rounded font-mono text-[11px] text-cyan-300 overflow-x-auto">
+{`# Stream console logs live in plain text
+curl -N ${typeof window !== 'undefined' ? window.location.origin : 'http://<macbook-ip>:3000'}/api/logs/stream?format=text
+
+# Or stream formatted JSON with recent history:
+curl -N "${typeof window !== 'undefined' ? window.location.origin : 'http://<macbook-ip>:3000'}/api/logs/stream?format=json&history=30"`}
+                </pre>
+              </div>
+
+              {/* Snippet 2: Snapshot of Recent Logs via REST */}
+              <div className="space-y-1.5 bg-slate-950 p-3 rounded-lg border border-slate-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-semibold text-slate-200">
+                    <Terminal className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>2. Fetch Recent Console Logs (REST API)</span>
+                  </div>
+                  <button
+                    onClick={() =>
+                      copySnippet(
+                        `curl ${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/api/logs?format=text&limit=100`,
+                        'curl-rest'
+                      )
+                    }
+                    className="flex items-center gap-1 px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 transition text-[10px]"
+                  >
+                    {copiedSnippet === 'curl-rest' ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-400" />
+                        <span className="text-emerald-400">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>Copy curl</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="text-slate-400 text-[11px]">
+                  Fetch the last N console log entries in plain text or structured JSON:
+                </p>
+                <pre className="bg-slate-900 p-2.5 rounded font-mono text-[11px] text-cyan-300 overflow-x-auto">
+{`# Fetch last 100 log lines as plain text
+curl ${typeof window !== 'undefined' ? window.location.origin : 'http://<macbook-ip>:3000'}/api/logs?format=text&limit=100
+
+# Fetch structured JSON
+curl ${typeof window !== 'undefined' ? window.location.origin : 'http://<macbook-ip>:3000'}/api/logs?limit=50`}
+                </pre>
+              </div>
+
+              {/* Snippet 3: Send Command to Hardware Serial */}
+              <div className="space-y-1.5 bg-slate-950 p-3 rounded-lg border border-slate-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-semibold text-slate-200">
+                    <Send className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>3. Send Command from Linux Claude to Hardware Serial</span>
+                  </div>
+                  <button
+                    onClick={() =>
+                      copySnippet(
+                        `curl -X POST ${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/api/command -H "Content-Type: application/json" -d '{"command":"help\\n","sender":"Linux Claude"}'`,
+                        'curl-cmd'
+                      )
+                    }
+                    className="flex items-center gap-1 px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 transition text-[10px]"
+                  >
+                    {copiedSnippet === 'curl-cmd' ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-400" />
+                        <span className="text-emerald-400">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>Copy curl</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="text-slate-400 text-[11px]">
+                  Linux Claude can trigger commands on the physical microcontroller plugged into your MacBook:
+                </p>
+                <pre className="bg-slate-900 p-2.5 rounded font-mono text-[11px] text-cyan-300 overflow-x-auto">
+{`curl -X POST ${typeof window !== 'undefined' ? window.location.origin : 'http://<macbook-ip>:3000'}/api/command \\
+  -H "Content-Type: application/json" \\
+  -d '{"command": "help\\n", "sender": "Linux Claude"}'`}
+                </pre>
+              </div>
+
+              {/* Snippet 4: Python Script for Linux Claude */}
+              <div className="space-y-1.5 bg-slate-950 p-3 rounded-lg border border-slate-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-semibold text-slate-200">
+                    <Terminal className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>4. Python Client for Claude / Automated AI Agents</span>
+                  </div>
+                  <button
+                    onClick={() =>
+                      copySnippet(
+`import requests, json
+
+HOST = "${typeof window !== 'undefined' ? window.location.origin : 'http://<macbook-ip>:3000'}"
+
+# 1. Read latest console logs
+res = requests.get(f"{HOST}/api/logs?format=text&limit=50")
+print("Latest Hardware Logs:")
+print(res.text)
+
+# 2. Send command to hardware
+cmd_res = requests.post(
+    f"{HOST}/api/command",
+    json={"command": "status\\n", "sender": "Claude Linux Agent"}
+)
+print("Command Response:", cmd_res.json())`,
+                        'python-code'
+                      )
+                    }
+                    className="flex items-center gap-1 px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 transition text-[10px]"
+                  >
+                    {copiedSnippet === 'python-code' ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-400" />
+                        <span className="text-emerald-400">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>Copy Python</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <pre className="bg-slate-900 p-2.5 rounded font-mono text-[11px] text-cyan-300 overflow-x-auto leading-5">
+{`import requests
+
+HOST = "${typeof window !== 'undefined' ? window.location.origin : 'http://<macbook-ip>:3000'}"
+
+# Read latest console logs
+logs = requests.get(f"{HOST}/api/logs?format=text&limit=50").text
+print(logs)
+
+# Send command to hardware
+requests.post(f"{HOST}/api/command", json={"command": "reboot\\n", "sender": "Linux Claude"})`}
+                </pre>
+              </div>
             </div>
           )}
 
