@@ -53,10 +53,19 @@ export const CleanSerialConsole: React.FC<CleanSerialConsoleProps> = ({
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
+  const [errorCopied, setErrorCopied] = useState(false);
 
   const terminalEndRef = useRef<HTMLDivElement>(null);
   const terminalContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleCopyError = () => {
+    if (device.error) {
+      navigator.clipboard.writeText(device.error);
+      setErrorCopied(true);
+      setTimeout(() => setErrorCopied(false), 2500);
+    }
+  };
 
   const hasWebSerial = isWebSerialSupported();
   const isIframe = typeof window !== 'undefined' && window.self !== window.top;
@@ -315,28 +324,52 @@ export const CleanSerialConsole: React.FC<CleanSerialConsoleProps> = ({
         </div>
       </header>
 
-      {/* Error Notification Bar if any */}
+      {/* Error Notification Bar with Click-to-Copy */}
       {device.error && (
-        <div className="bg-rose-950/95 border-b border-rose-800/80 px-4 py-2 text-xs text-rose-200 flex items-center justify-between gap-3 shadow-md shrink-0">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
+        <div className="bg-rose-950/95 border-b border-rose-800/80 px-4 py-2.5 text-xs text-rose-200 flex flex-wrap items-center justify-between gap-3 shadow-md shrink-0">
+          <div
+            onClick={handleCopyError}
+            className="flex items-center gap-2 flex-1 min-w-[220px] cursor-pointer group"
+            title="Click message to copy error to clipboard"
+          >
             <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-            <span className="font-semibold">{device.error}</span>
+            <span className="font-semibold select-all group-hover:underline">{device.error}</span>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {isIframe && device.error.includes('iframe') && (
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            {/* Click to Copy Error Button */}
+            <button
+              onClick={handleCopyError}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-rose-900 hover:bg-rose-800 text-white border border-rose-600/80 text-xs font-semibold transition shadow-sm active:scale-95"
+              title="Copy error message to clipboard"
+            >
+              {errorCopied ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-emerald-300">Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Click to Copy Error</span>
+                </>
+              )}
+            </button>
+
+            {isIframe && (
               <a
                 href={typeof window !== 'undefined' ? window.location.href : '#'}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-1 px-2.5 py-1 rounded bg-rose-700 hover:bg-rose-600 text-white text-xs font-semibold transition shadow"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold transition shadow-sm border border-cyan-500 active:scale-95"
+                title="Open in dedicated browser tab to access WebSerial USB directly in Chrome"
               >
                 <span>Open in New Tab</span>
-                <ExternalLink className="w-3 h-3" />
+                <ExternalLink className="w-3.5 h-3.5" />
               </a>
             )}
             <button
               onClick={() => onUpdateConfig(device.id, { error: undefined, status: 'disconnected' })}
-              className="text-rose-300 hover:text-white p-1 rounded hover:bg-rose-900/60"
+              className="text-rose-300 hover:text-white p-1 rounded hover:bg-rose-900/60 transition"
               title="Dismiss error"
             >
               <X className="w-3.5 h-3.5" />

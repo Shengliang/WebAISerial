@@ -162,6 +162,11 @@ class SerialManager {
   // --- WebSerial Implementation ---
   private async connectWebSerial(device: SerialDevice): Promise<void> {
     if (!isWebSerialSupported()) {
+      if (typeof window !== 'undefined' && window.self !== window.top) {
+        throw new Error(
+          'WebSerial API is restricted inside preview iframes by Chrome security policy. Please click "Open in New Tab" to use your USB serial device directly in Chrome.'
+        );
+      }
       throw new Error(
         'WebSerial API is not supported in this browser. Please use Chrome, Edge, or Opera on desktop.'
       );

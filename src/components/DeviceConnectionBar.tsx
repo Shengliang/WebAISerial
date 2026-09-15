@@ -4,6 +4,7 @@ import {
   Cable,
   Check,
   ChevronDown,
+  Copy,
   Cpu,
   ExternalLink,
   Radio,
@@ -47,6 +48,15 @@ export const DeviceConnectionBar: React.FC<DeviceConnectionBarProps> = ({
   const [showAdvancedSettings, setShowAdvancedSettings] = React.useState(false);
   const [customBaud, setCustomBaud] = React.useState('');
   const [showCustomBaudInput, setShowCustomBaudInput] = React.useState(false);
+  const [errorCopied, setErrorCopied] = React.useState(false);
+
+  const handleCopyError = () => {
+    if (device.error) {
+      navigator.clipboard.writeText(device.error);
+      setErrorCopied(true);
+      setTimeout(() => setErrorCopied(false), 2500);
+    }
+  };
 
   const hasWebSerial = isWebSerialSupported();
   const isConnected = device.status === 'connected';
@@ -82,10 +92,14 @@ export const DeviceConnectionBar: React.FC<DeviceConnectionBarProps> = ({
     <div>
       {device.error && (
         <div className="bg-rose-950/95 border-b border-rose-800/80 px-3 py-2.5 text-xs text-rose-200 flex flex-wrap items-center justify-between gap-3 shadow-md">
-          <div className="flex items-start sm:items-center gap-2 flex-1 min-w-[240px]">
+          <div
+            onClick={handleCopyError}
+            className="flex items-start sm:items-center gap-2 flex-1 min-w-[240px] cursor-pointer group"
+            title="Click to copy error message to clipboard"
+          >
             <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5 sm:mt-0" />
             <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-              <span className="font-semibold">{device.error}</span>
+              <span className="font-semibold select-all group-hover:underline">{device.error}</span>
               {isIframe && device.error.includes('iframe') && (
                 <span className="text-slate-300 text-[11px]">
                   (Browsers block WebSerial inside nested preview iframes)
@@ -94,6 +108,26 @@ export const DeviceConnectionBar: React.FC<DeviceConnectionBarProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            {/* Click to Copy Error Button */}
+            <button
+              type="button"
+              onClick={handleCopyError}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-rose-900 hover:bg-rose-800 text-white border border-rose-600/80 text-xs font-semibold transition shadow-sm active:scale-95"
+              title="Copy error message to clipboard"
+            >
+              {errorCopied ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-emerald-300">Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Click to Copy Error</span>
+                </>
+              )}
+            </button>
+
             {isIframe && (
               <a
                 href={typeof window !== 'undefined' ? window.location.href : '#'}
