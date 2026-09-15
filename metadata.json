@@ -1,6 +1,6 @@
 {
   "name": "Embedded Firmware Serial Console & Debugger",
-  "description": "Web terminal and serial console for embedded firmware debugging with real-time streaming, adjustable baud rates, hex dump view, multi-device WebSerial support, automated firmware download & power-cycle boot capture workflow, 60-month IndexedDB session retention, SQLite/offline disk exporters, real-time live console sharing (1 writer, N readers), and a browser-based ARM Cortex CPU simulator with C editor, LED blinking demo, and execution datapath.",
+  "description": "Web terminal and serial console for embedded firmware debugging with real-time streaming, adjustable baud rates, hex dump view, multi-device WebSerial support, automated firmware download & power-cycle boot capture workflow, 60-month IndexedDB session retention, SQLite/offline disk exporters, real-time live console sharing, and an ARM Cortex simulator with Das U-Boot command line interface (CLI), C compiler, dynamic AAPCS function execution (go/call), memory read/write (md/mw/cp), and hardware datapath visualizer.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

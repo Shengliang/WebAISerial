@@ -660,6 +660,115 @@ export class ArmCortexSimulator {
       this.updateZandN(aluResult);
       writebackInfo = { reg: `R${rd}`, value: aluResult };
     }
+    // ADD Rd, Rn, Rm (0001 100m mmnn nddd) -> 0x1800
+    else if ((instWord & 0xfe00) === 0x1800) {
+      const rd = instWord & 0x7;
+      const rn = (instWord >> 3) & 0x7;
+      const rm = (instWord >> 6) & 0x7;
+      const a = this.getRegister(rn);
+      const b = this.getRegister(rm);
+
+      mnemonic = `ADDS R${rd}, R${rn}, R${rm}`;
+      opcodeStr = 'ADDS_REG';
+      destRegStr = `R${rd}`;
+      sourceRegs = [`R${rn}`, `R${rm}`];
+
+      aluA = a;
+      aluB = b;
+      aluOp = 'ADD';
+      aluResult = (a + b) >>> 0;
+
+      this.setRegister(rd, aluResult);
+      this.updateZandN(aluResult);
+      writebackInfo = { reg: `R${rd}`, value: aluResult };
+    }
+    // SUB Rd, Rn, Rm (0001 101m mmnn nddd) -> 0x1a00
+    else if ((instWord & 0xfe00) === 0x1a00) {
+      const rd = instWord & 0x7;
+      const rn = (instWord >> 3) & 0x7;
+      const rm = (instWord >> 6) & 0x7;
+      const a = this.getRegister(rn);
+      const b = this.getRegister(rm);
+
+      mnemonic = `SUBS R${rd}, R${rn}, R${rm}`;
+      opcodeStr = 'SUBS_REG';
+      destRegStr = `R${rd}`;
+      sourceRegs = [`R${rn}`, `R${rm}`];
+
+      aluA = a;
+      aluB = b;
+      aluOp = 'SUB';
+      aluResult = (a - b) >>> 0;
+
+      this.setRegister(rd, aluResult);
+      this.updateZandN(aluResult);
+      writebackInfo = { reg: `R${rd}`, value: aluResult };
+    }
+    // ADD Rd, Rn, #imm3 (0001 110i iinn nddd) -> 0x1c00
+    else if ((instWord & 0xfe00) === 0x1c00) {
+      const rd = instWord & 0x7;
+      const rn = (instWord >> 3) & 0x7;
+      const imm3 = (instWord >> 6) & 0x7;
+      const a = this.getRegister(rn);
+
+      mnemonic = `ADDS R${rd}, R${rn}, #${imm3}`;
+      opcodeStr = 'ADDS_IMM3';
+      destRegStr = `R${rd}`;
+      sourceRegs = [`R${rn}`];
+      immediateVal = imm3;
+
+      aluA = a;
+      aluB = imm3;
+      aluOp = 'ADD';
+      aluResult = (a + imm3) >>> 0;
+
+      this.setRegister(rd, aluResult);
+      this.updateZandN(aluResult);
+      writebackInfo = { reg: `R${rd}`, value: aluResult };
+    }
+    // SUB Rd, Rn, #imm3 (0001 111i iinn nddd) -> 0x1e00
+    else if ((instWord & 0xfe00) === 0x1e00) {
+      const rd = instWord & 0x7;
+      const rn = (instWord >> 3) & 0x7;
+      const imm3 = (instWord >> 6) & 0x7;
+      const a = this.getRegister(rn);
+
+      mnemonic = `SUBS R${rd}, R${rn}, #${imm3}`;
+      opcodeStr = 'SUBS_IMM3';
+      destRegStr = `R${rd}`;
+      sourceRegs = [`R${rn}`];
+      immediateVal = imm3;
+
+      aluA = a;
+      aluB = imm3;
+      aluOp = 'SUB';
+      aluResult = (a - imm3) >>> 0;
+
+      this.setRegister(rd, aluResult);
+      this.updateZandN(aluResult);
+      writebackInfo = { reg: `R${rd}`, value: aluResult };
+    }
+    // MULS Rd, Rm (0100 0011 01mm mddd) -> 0x4340
+    else if ((instWord & 0xffc0) === 0x4340) {
+      const rd = instWord & 0x7;
+      const rm = (instWord >> 3) & 0x7;
+      const a = this.getRegister(rd);
+      const b = this.getRegister(rm);
+
+      mnemonic = `MULS R${rd}, R${rm}`;
+      opcodeStr = 'MULS';
+      destRegStr = `R${rd}`;
+      sourceRegs = [`R${rd}`, `R${rm}`];
+
+      aluA = a;
+      aluB = b;
+      aluOp = 'MUL';
+      aluResult = Math.imul(a, b) >>> 0;
+
+      this.setRegister(rd, aluResult);
+      this.updateZandN(aluResult);
+      writebackInfo = { reg: `R${rd}`, value: aluResult };
+    }
     // ADD Rd, #imm8 (0011 0ddd iiiiiiii) -> 0x3000
     else if ((instWord & 0xf800) === 0x3000) {
       const rd = (instWord >> 8) & 0x7;
@@ -875,6 +984,91 @@ export class ArmCortexSimulator {
         }
       }
     }, intervalMs);
+  }
+
+  /**
+   * Execute a function at the specified address using ARM AAPCS calling convention.
+   * - Arguments passed in R0, R1, R2, R3
+   * - Sets LR to trap address (0xFFFFFFFD)
+   * - Runs until function returns (BX LR or POP {..., PC}) or max cycles reached.
+   * - Returns result in R0.
+   */
+  public executeFunction(
+    address: number,
+    args: number[] = [],
+    maxCycles = 100000
+  ): {
+    success: boolean;
+    returnValue: number;
+    signedReturnValue: number;
+    cyclesElapsed: number;
+    finalRegisters: CpuRegisters;
+    serialOutput: string;
+    error?: string;
+  } {
+    this.pause();
+    const returnTrap = 0xfffffffd;
+
+    // Ensure valid Stack Pointer
+    if (this.registers.sp < SRAM_BASE || this.registers.sp > STACK_TOP) {
+      this.registers.sp = STACK_TOP;
+    }
+
+    // Set arguments in registers R0-R3 (ARM AAPCS standard)
+    this.registers.r0 = args[0] !== undefined ? (args[0] >>> 0) : 0;
+    this.registers.r1 = args[1] !== undefined ? (args[1] >>> 0) : 0;
+    this.registers.r2 = args[2] !== undefined ? (args[2] >>> 0) : 0;
+    this.registers.r3 = args[3] !== undefined ? (args[3] >>> 0) : 0;
+    this.registers.lr = returnTrap;
+    this.registers.pc = address & ~1; // Clear Thumb bit for alignment
+
+    let capturedSerial = '';
+    const originalSerialCb = this.onSerialTxCallback;
+    this.onSerialTxCallback = (char, byte) => {
+      capturedSerial += char;
+      if (originalSerialCb) originalSerialCb(char, byte);
+    };
+
+    let cycles = 0;
+    let returned = false;
+
+    while (cycles < maxCycles) {
+      const pc = this.registers.pc;
+      if (
+        pc === returnTrap ||
+        pc === (returnTrap & ~1) ||
+        pc === 0xffffffff ||
+        pc === 0
+      ) {
+        returned = true;
+        break;
+      }
+
+      // Safety bounds check (within Flash ROM or SRAM)
+      const inFlash = pc >= FLASH_BASE && pc < FLASH_BASE + FLASH_SIZE;
+      const inSram = pc >= SRAM_BASE && pc < SRAM_BASE + SRAM_SIZE;
+      if (!inFlash && !inSram) {
+        break;
+      }
+
+      this.step();
+      cycles++;
+    }
+
+    this.onSerialTxCallback = originalSerialCb;
+
+    const rawRet = this.registers.r0 >>> 0;
+    const signedRet = this.registers.r0 | 0;
+
+    return {
+      success: returned || cycles < maxCycles,
+      returnValue: rawRet,
+      signedReturnValue: signedRet,
+      cyclesElapsed: cycles,
+      finalRegisters: { ...this.registers },
+      serialOutput: capturedSerial,
+      error: !returned && cycles >= maxCycles ? 'Execution exceeded cycle limit (infinite loop)' : undefined,
+    };
   }
 
   public pause() {

@@ -102,13 +102,22 @@ export interface ArmDisassemblyLine {
   rawText: string;
 }
 
+export interface CompilerDiagnostic {
+  line: number;
+  column?: number;
+  message: string;
+  sourceSnippet?: string;
+  severity: 'error' | 'warning';
+}
+
 export interface CompilationResult {
   success: boolean;
-  errors: Array<{ line: number; message: string }>;
-  warnings: Array<{ line: number; message: string }>;
+  errors: CompilerDiagnostic[];
+  warnings: CompilerDiagnostic[];
   binary: Uint8Array;
   disassembly: ArmDisassemblyLine[];
   symbols: Record<string, number>;
   flashSize: number;
   ramSize: number;
+  buildLog?: string;
 }

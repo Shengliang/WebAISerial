@@ -703,30 +703,32 @@ export default function App() {
       />
 
       {/* ARM Cortex-M CPU Simulator, C IDE, LED Blinking & Complete Datapath Demo */}
-      <ArmSimulatorModal
-        isOpen={isArmSimulatorOpen}
-        onClose={() => setIsArmSimulatorOpen(false)}
-        onForwardSerialLog={(text, rawBytes) => {
-          const entry: LogEntry = {
-            id: 'arm-log-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
-            timestamp: Date.now(),
-            deviceId: activeDeviceId,
-            deviceName: activeDevice?.name || 'ARM Cortex-M3',
-            level: text.includes('ERROR') ? 'ERROR' : text.includes('WARN') ? 'WARN' : 'INFO',
-            direction: 'RX',
-            text,
-            rawBytes,
-            hexView: rawBytes?.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' '),
-          };
-          setLogs(prev => {
-            const next = [...prev, entry];
-            return next.length > 3000 ? next.slice(-2500) : next;
-          });
-          if (liveStateRef.current.isLive && liveStateRef.current.role === 'writer') {
-            liveSessionClient.streamLogs([entry]);
-          }
-        }}
-      />
+      {isArmSimulatorOpen && (
+        <ArmSimulatorModal
+          isOpen={isArmSimulatorOpen}
+          onClose={() => setIsArmSimulatorOpen(false)}
+          onForwardSerialLog={(text, rawBytes) => {
+            const entry: LogEntry = {
+              id: 'arm-log-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+              timestamp: Date.now(),
+              deviceId: activeDeviceId,
+              deviceName: activeDevice?.name || 'ARM Cortex-M3',
+              level: text.includes('ERROR') ? 'ERROR' : text.includes('WARN') ? 'WARN' : 'INFO',
+              direction: 'RX',
+              text,
+              rawBytes,
+              hexView: rawBytes?.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' '),
+            };
+            setLogs(prev => {
+              const next = [...prev, entry];
+              return next.length > 3000 ? next.slice(-2500) : next;
+            });
+            if (liveStateRef.current.isLive && liveStateRef.current.role === 'writer') {
+              liveSessionClient.streamLogs([entry]);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

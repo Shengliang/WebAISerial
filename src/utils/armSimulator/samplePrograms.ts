@@ -11,6 +11,61 @@ export interface SampleProgram {
 
 export const SAMPLE_C_PROGRAMS: SampleProgram[] = [
   {
+    id: 'uboot_c_function_add',
+    name: 'U-Boot C Function: add(a, b) & Dynamic Execution (AAPCS)',
+    description:
+      'Demonstrates C function creation, compilation, and interactive execution from the U-Boot CLI prompt. Call "go add 15 27" or "go 0x08000008 15 27" and view return values in R0.',
+    code: `/**
+ * ====================================================================
+ *   U-Boot C Callable Function Demo: int add(int a, int b)
+ * ====================================================================
+ *   Hardware Target: ARM Cortex-M3 (STM32F103)
+ *   Calling Convention (ARM AAPCS Standard):
+ *     - Parameter 'a' passed in Register R0
+ *     - Parameter 'b' passed in Register R1
+ *     - Return value returned in Register R0
+ *
+ *   Interactive U-Boot Commands:
+ *     => compile
+ *     => symbols
+ *     => go add 15 27
+ *     => call add 40 2
+ *     => go 0x08000008 100 250
+ *     => md.l 0x20000000 4
+ *     => mw.l 0x20000000 0xCAFEBABE
+ * ====================================================================
+ */
+
+#include <stdint.h>
+
+/**
+ * Adds two 32-bit integers.
+ * Calling convention: R0 = a, R1 = b, returns R0 = a + b.
+ */
+int add(int a, int b) {
+    return a + b;
+}
+
+/**
+ * Multiplies two 32-bit integers.
+ * Calling convention: R0 = a, R1 = b, returns R0 = a * b.
+ */
+int multiply(int a, int b) {
+    return a * b;
+}
+
+/**
+ * Firmware main entry point demonstrating add() invocation
+ */
+int main(void) {
+    int x = 40;
+    int y = 2;
+    int result = add(x, y);
+    return result;
+}
+`,
+  },
+  {
     id: 'blink_hello_world',
     name: 'LED Blinking & UART Hello World (PC13 + USART1)',
     description:

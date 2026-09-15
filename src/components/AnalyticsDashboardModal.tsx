@@ -53,8 +53,6 @@ export const AnalyticsDashboardModal: React.FC<AnalyticsDashboardModalProps> = (
   devices,
   sessionAnalytics,
 }) => {
-  if (!isOpen) return null;
-
   // Compute log severity distribution
   const severityData = useMemo(() => {
     const counts: Record<string, number> = {
@@ -87,6 +85,8 @@ export const AnalyticsDashboardModal: React.FC<AnalyticsDashboardModalProps> = (
       baudRate: d.config.baudRate,
     }));
   }, [devices]);
+
+  if (!isOpen) return null;
 
   // Total metrics
   const totalLogs = logs.length;

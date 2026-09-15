@@ -46,8 +46,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const [autoExportEnabled, setAutoExportEnabled] = useState(false);
   const [autoExportThreshold, setAutoExportThreshold] = useState(500);
 
-  if (!isOpen) return null;
-
   const exportPayload = useMemo(() => {
     return generateExportContent(
       logs,
@@ -71,6 +69,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 z-50 animate-fadeIn font-sans text-slate-100">
