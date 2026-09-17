@@ -148,39 +148,39 @@ export const DeviceConnectionBar: React.FC<DeviceConnectionBarProps> = ({
             />
           </div>
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
-            {/* Kill Old Connections Action Button */}
-            <button
-              type="button"
-              onClick={handleKillOldConnections}
-              disabled={isKillingConnections}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-white border border-amber-400/80 text-xs font-semibold transition shadow-sm active:scale-95 disabled:opacity-50"
-              title="Force release WebSerial locks and kill old browser connections"
-            >
-              <PowerOff className={`w-3.5 h-3.5 ${isKillingConnections ? 'animate-spin' : ''}`} />
-              <span>{isKillingConnections ? 'Killing...' : killSuccess ? 'Killed & Reset!' : 'Kill Old Connections'}</span>
-            </button>
-
             {/* Quick Copy 'killall screen' button if screen or port lock detected */}
             {isPortLockError && (
               <button
                 type="button"
                 onClick={handleCopyScreenCommand}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-xs font-semibold transition shadow-sm active:scale-95"
-                title="Copy 'killall screen' terminal command for macOS"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-white border border-amber-400 text-xs font-semibold transition shadow-sm active:scale-95"
+                title="Copy 'killall screen' terminal command to release port on macOS"
               >
                 {screenCmdCopied ? (
                   <>
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="text-emerald-300">Copied killall screen!</span>
+                    <Check className="w-3.5 h-3.5 text-emerald-300" />
+                    <span className="text-white">Copied killall screen!</span>
                   </>
                 ) : (
                   <>
-                    <Terminal className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Copy killall screen</span>
+                    <Terminal className="w-3.5 h-3.5 text-amber-200" />
+                    <span>Copy 'killall screen'</span>
                   </>
                 )}
               </button>
             )}
+
+            {/* Reset App State Button */}
+            <button
+              type="button"
+              onClick={handleKillOldConnections}
+              disabled={isKillingConnections}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-xs font-semibold transition shadow-sm active:scale-95 disabled:opacity-50"
+              title="Safely reset internal web app connection states and locks"
+            >
+              <PowerOff className={`w-3.5 h-3.5 ${isKillingConnections ? 'animate-spin text-cyan-400' : 'text-cyan-400'}`} />
+              <span>{isKillingConnections ? 'Resetting...' : killSuccess ? 'State Reset!' : 'Reset App State'}</span>
+            </button>
 
             {/* Troubleshoot / Help Button */}
             {isPortLockError && (
@@ -597,16 +597,16 @@ export const DeviceConnectionBar: React.FC<DeviceConnectionBarProps> = ({
           </button>
         )}
 
-        {/* Kill Old Connections Reset Button */}
+        {/* Reset App Connections Toolbar Button */}
         <button
           type="button"
           onClick={handleKillOldConnections}
           disabled={isKillingConnections}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-300 border border-slate-700 text-xs transition active:scale-95 disabled:opacity-50"
-          title="Force release WebSerial locks and kill old connections"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-300 border border-slate-700 text-xs transition active:scale-95 disabled:opacity-50"
+          title="Safely reset internal web app connection states and locks"
         >
-          <PowerOff className={`w-3.5 h-3.5 ${isKillingConnections ? 'animate-spin text-amber-400' : 'text-amber-400'}`} />
-          <span className="hidden sm:inline">{killSuccess ? 'Old Conns Killed!' : 'Kill Old Conns'}</span>
+          <PowerOff className={`w-3.5 h-3.5 ${isKillingConnections ? 'animate-spin text-cyan-400' : 'text-cyan-400'}`} />
+          <span className="hidden sm:inline">{killSuccess ? 'App State Reset!' : 'Reset Port State'}</span>
         </button>
 
         {/* Main Connect / Disconnect Action Button */}

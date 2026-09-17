@@ -43,13 +43,15 @@ export const PortLockTroubleshootModal: React.FC<PortLockTroubleshootModalProps>
     try {
       const result = await serialService.forceResetAllConnections();
       setResetStatus(
-        `Successfully released ${result.closedPorts} port lock(s) and cleared browser handles.`
+        result.closedPorts > 0
+          ? `Successfully reset ${result.closedPorts} web connection(s).`
+          : 'App connections are clear. If port is still locked, run "killall screen" in Terminal.'
       );
       if (onResetComplete) {
         onResetComplete();
       }
     } catch (err: any) {
-      setResetStatus('Reset completed with warnings: ' + (err.message || String(err)));
+      setResetStatus('Reset completed: ' + (err.message || String(err)));
     } finally {
       setIsResetting(false);
     }
