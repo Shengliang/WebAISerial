@@ -8,8 +8,20 @@ import { armSimulator } from './armSimulator/armCpu';
 import { compileCSource } from './armSimulator/cCompiler';
 import { SAMPLE_C_PROGRAMS } from './armSimulator/samplePrograms';
 
+export function isRunningInIframe(): boolean {
+  try {
+    return typeof window !== 'undefined' && window.self !== window.top;
+  } catch (e) {
+    return true;
+  }
+}
+
 export function isWebSerialSupported(): boolean {
-  return typeof navigator !== 'undefined' && 'serial' in navigator;
+  try {
+    return typeof navigator !== 'undefined' && 'serial' in navigator && !!(navigator as any).serial;
+  } catch (e) {
+    return false;
+  }
 }
 
 export type LogCallback = (deviceId: string, text: string, rawBytes?: number[], direction?: 'RX' | 'TX') => void;
@@ -162,13 +174,13 @@ class SerialManager {
   // --- WebSerial Implementation ---
   private async connectWebSerial(device: SerialDevice): Promise<void> {
     if (!isWebSerialSupported()) {
-      if (typeof window !== 'undefined' && window.self !== window.top) {
+      if (isRunningInIframe()) {
         throw new Error(
-          'WebSerial API is restricted inside preview iframes by Chrome security policy. Please click "Open in New Tab" to use your USB serial device directly in Chrome.'
+          'WebSerial API is blocked inside browser preview iframes. Please click "Open in New Tab" to access your USB serial port directly in Chrome.'
         );
       }
       throw new Error(
-        'WebSerial API is not supported in this browser. Please use Chrome, Edge, or Opera on desktop.'
+        'WebSerial API is not supported in this browser. Please use Google Chrome, Microsoft Edge, or Opera on desktop.'
       );
     }
 

@@ -18,7 +18,8 @@ import {
 } from 'lucide-react';
 import { LineEnding, LogEntry, SerialDevice } from '../types';
 import { parseAnsi, stripAnsi } from '../utils/ansi';
-import { isWebSerialSupported } from '../utils/serialService';
+import { copyToClipboard } from '../utils/clipboard';
+import { isRunningInIframe, isWebSerialSupported } from '../utils/serialService';
 
 const BAUD_RATES = [
   300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600,
@@ -58,17 +59,22 @@ export const CleanSerialConsole: React.FC<CleanSerialConsoleProps> = ({
   const terminalEndRef = useRef<HTMLDivElement>(null);
   const terminalContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const errorInputRef = useRef<HTMLInputElement>(null);
 
-  const handleCopyError = () => {
+  const handleCopyError = async () => {
     if (device.error) {
-      navigator.clipboard.writeText(device.error);
+      if (errorInputRef.current) {
+        errorInputRef.current.focus();
+        errorInputRef.current.select();
+      }
+      await copyToClipboard(device.error);
       setErrorCopied(true);
       setTimeout(() => setErrorCopied(false), 2500);
     }
   };
 
   const hasWebSerial = isWebSerialSupported();
-  const isIframe = typeof window !== 'undefined' && window.self !== window.top;
+  const isIframe = isRunningInIframe();
   const isConnected = device.status === 'connected';
   const isConnecting = device.status === 'connecting';
 
@@ -159,7 +165,7 @@ export const CleanSerialConsole: React.FC<CleanSerialConsoleProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-slate-950 text-slate-100 font-sans overflow-hidden select-none">
+    <div className="flex flex-col h-screen w-screen bg-slate-950 text-slate-100 font-sans overflow-hidden">
       {/* Top Header & Connection Bar */}
       <header className="bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-md shrink-0">
         {/* Left: App Identity & Port Status */}
@@ -327,17 +333,23 @@ export const CleanSerialConsole: React.FC<CleanSerialConsoleProps> = ({
       {/* Error Notification Bar with Click-to-Copy */}
       {device.error && (
         <div className="bg-rose-950/95 border-b border-rose-800/80 px-4 py-2.5 text-xs text-rose-200 flex flex-wrap items-center justify-between gap-3 shadow-md shrink-0">
-          <div
-            onClick={handleCopyError}
-            className="flex items-center gap-2 flex-1 min-w-[220px] cursor-pointer group"
-            title="Click message to copy error to clipboard"
-          >
+          <div className="flex items-center gap-2 flex-1 min-w-[280px]">
             <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-            <span className="font-semibold select-all group-hover:underline">{device.error}</span>
+            <input
+              ref={errorInputRef}
+              type="text"
+              readOnly
+              value={device.error}
+              onClick={e => (e.target as HTMLInputElement).select()}
+              onFocus={e => (e.target as HTMLInputElement).select()}
+              className="bg-rose-900/60 border border-rose-700/80 rounded px-2.5 py-1 text-xs text-rose-100 font-mono flex-1 select-all focus:outline-none focus:ring-1 focus:ring-rose-400 cursor-text shadow-inner"
+              title="Click to select all error text, or click 'Copy Error' button"
+            />
           </div>
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
             {/* Click to Copy Error Button */}
             <button
+              type="button"
               onClick={handleCopyError}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-rose-900 hover:bg-rose-800 text-white border border-rose-600/80 text-xs font-semibold transition shadow-sm active:scale-95"
               title="Copy error message to clipboard"
@@ -345,7 +357,7 @@ export const CleanSerialConsole: React.FC<CleanSerialConsoleProps> = ({
               {errorCopied ? (
                 <>
                   <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-300">Copied!</span>
+                  <span className="text-emerald-300 font-medium">Copied to Clipboard!</span>
                 </>
               ) : (
                 <>
@@ -368,6 +380,7 @@ export const CleanSerialConsole: React.FC<CleanSerialConsoleProps> = ({
               </a>
             )}
             <button
+              type="button"
               onClick={() => onUpdateConfig(device.id, { error: undefined, status: 'disconnected' })}
               className="text-rose-300 hover:text-white p-1 rounded hover:bg-rose-900/60 transition"
               title="Dismiss error"

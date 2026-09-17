@@ -16,7 +16,8 @@ import {
   X,
 } from 'lucide-react';
 import { SerialDevice, VirtualProfile } from '../types';
-import { isWebSerialSupported } from '../utils/serialService';
+import { copyToClipboard } from '../utils/clipboard';
+import { isRunningInIframe, isWebSerialSupported } from '../utils/serialService';
 
 interface DeviceConnectionBarProps {
   device: SerialDevice;
@@ -49,10 +50,15 @@ export const DeviceConnectionBar: React.FC<DeviceConnectionBarProps> = ({
   const [customBaud, setCustomBaud] = React.useState('');
   const [showCustomBaudInput, setShowCustomBaudInput] = React.useState(false);
   const [errorCopied, setErrorCopied] = React.useState(false);
+  const errorInputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleCopyError = () => {
+  const handleCopyError = async () => {
     if (device.error) {
-      navigator.clipboard.writeText(device.error);
+      if (errorInputRef.current) {
+        errorInputRef.current.focus();
+        errorInputRef.current.select();
+      }
+      await copyToClipboard(device.error);
       setErrorCopied(true);
       setTimeout(() => setErrorCopied(false), 2500);
     }
@@ -85,27 +91,25 @@ export const DeviceConnectionBar: React.FC<DeviceConnectionBarProps> = ({
     }
   };
 
-  const isIframe = typeof window !== 'undefined' && window.self !== window.top;
+  const isIframe = isRunningInIframe();
   const isWebSerialIframeRestricted = isIframe && device.portType === 'webserial';
 
   return (
     <div>
       {device.error && (
         <div className="bg-rose-950/95 border-b border-rose-800/80 px-3 py-2.5 text-xs text-rose-200 flex flex-wrap items-center justify-between gap-3 shadow-md">
-          <div
-            onClick={handleCopyError}
-            className="flex items-start sm:items-center gap-2 flex-1 min-w-[240px] cursor-pointer group"
-            title="Click to copy error message to clipboard"
-          >
-            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5 sm:mt-0" />
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-              <span className="font-semibold select-all group-hover:underline">{device.error}</span>
-              {isIframe && device.error.includes('iframe') && (
-                <span className="text-slate-300 text-[11px]">
-                  (Browsers block WebSerial inside nested preview iframes)
-                </span>
-              )}
-            </div>
+          <div className="flex items-center gap-2 flex-1 min-w-[280px]">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <input
+              ref={errorInputRef}
+              type="text"
+              readOnly
+              value={device.error}
+              onClick={e => (e.target as HTMLInputElement).select()}
+              onFocus={e => (e.target as HTMLInputElement).select()}
+              className="bg-rose-900/60 border border-rose-700/80 rounded px-2.5 py-1 text-xs text-rose-100 font-mono flex-1 select-all focus:outline-none focus:ring-1 focus:ring-rose-400 cursor-text shadow-inner"
+              title="Click to select all error text, or click 'Copy Error' button"
+            />
           </div>
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
             {/* Click to Copy Error Button */}
@@ -118,7 +122,7 @@ export const DeviceConnectionBar: React.FC<DeviceConnectionBarProps> = ({
               {errorCopied ? (
                 <>
                   <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-300">Copied!</span>
+                  <span className="text-emerald-300 font-medium">Copied to Clipboard!</span>
                 </>
               ) : (
                 <>
@@ -133,9 +137,10 @@ export const DeviceConnectionBar: React.FC<DeviceConnectionBarProps> = ({
                 href={typeof window !== 'undefined' ? window.location.href : '#'}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-rose-700 hover:bg-rose-600 text-white text-xs font-semibold transition shadow"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold transition shadow-sm border border-cyan-500 active:scale-95"
+                title="Open in dedicated browser tab to access WebSerial USB directly in Chrome"
               >
-                <span>Open in Dedicated Tab</span>
+                <span>Open in New Tab</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
             )}
