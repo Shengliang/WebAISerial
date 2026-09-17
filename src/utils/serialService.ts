@@ -87,9 +87,27 @@ class SerialManager {
       armSimulator.pause();
     }
 
+    if (conn.writer) {
+      try {
+        await conn.writer.abort();
+      } catch (e) {
+        // ignore
+      }
+      try {
+        conn.writer.releaseLock();
+      } catch (e) {
+        // ignore
+      }
+    }
+
     if (conn.reader) {
       try {
         await conn.reader.cancel();
+      } catch (e) {
+        // ignore
+      }
+      try {
+        conn.reader.releaseLock();
       } catch (e) {
         // ignore
       }
@@ -113,6 +131,58 @@ class SerialManager {
     this.connections.delete(deviceId);
     this.onStatusChange(disconnectedDevice);
     this.onLog(deviceId, `[SYSTEM] Port closed. Device disconnected.\r\n`, undefined, 'RX');
+  }
+
+  /**
+   * Force release and kill all lingering serial port locks, browser streams, and WebSerial permissions.
+   * Useful when Chrome or an old connection held onto the port.
+   */
+  public async forceResetAllConnections(): Promise<{ closedPorts: number; revokedPorts: number }> {
+    let closedPorts = 0;
+    let revokedPorts = 0;
+
+    // 1. Force close and unbind all internal active connections
+    const activeDeviceIds = Array.from(this.connections.keys());
+    for (const id of activeDeviceIds) {
+      try {
+        await this.disconnect(id);
+        closedPorts++;
+      } catch (e) {
+        console.warn(`Error disconnecting device ${id}:`, e);
+      }
+    }
+
+    // 2. Query all WebSerial ports granted to the browser and force close / forget them
+    if (typeof navigator !== 'undefined' && (navigator as any).serial?.getPorts) {
+      try {
+        const ports = await (navigator as any).serial.getPorts();
+        for (const port of ports) {
+          try {
+            if (port.readable?.locked || port.writable?.locked) {
+              // Cancel streams if possible
+            }
+            await port.close().catch(() => {});
+            closedPorts++;
+          } catch (e) {
+            // port might already be closed
+          }
+
+          // Revoking device permission releases Chrome's exclusive OS handle lock
+          if (typeof port.forget === 'function') {
+            try {
+              await port.forget();
+              revokedPorts++;
+            } catch (e) {
+              // ignore
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Could not enumerate browser WebSerial ports for reset:', err);
+      }
+    }
+
+    return { closedPorts, revokedPorts };
   }
 
   public async setSignals(deviceId: string, signals: { dtr?: boolean; rts?: boolean }): Promise<void> {

@@ -15,11 +15,16 @@ import {
   Clock,
   CornerDownLeft,
   ChevronDown,
+  PowerOff,
+  HelpCircle,
+  RefreshCw,
+  Zap,
 } from 'lucide-react';
 import { LineEnding, LogEntry, SerialDevice } from '../types';
 import { parseAnsi, stripAnsi } from '../utils/ansi';
 import { copyToClipboard } from '../utils/clipboard';
-import { isRunningInIframe, isWebSerialSupported } from '../utils/serialService';
+import { isRunningInIframe, isWebSerialSupported, serialService } from '../utils/serialService';
+import { PortLockTroubleshootModal } from './PortLockTroubleshootModal';
 
 const BAUD_RATES = [
   300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600,
@@ -55,6 +60,10 @@ export const CleanSerialConsole: React.FC<CleanSerialConsoleProps> = ({
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [errorCopied, setErrorCopied] = useState(false);
+  const [isKillingConnections, setIsKillingConnections] = useState(false);
+  const [killSuccess, setKillSuccess] = useState(false);
+  const [screenCmdCopied, setScreenCmdCopied] = useState(false);
+  const [showTroubleshootModal, setShowTroubleshootModal] = useState(false);
 
   const terminalEndRef = useRef<HTMLDivElement>(null);
   const terminalContainerRef = useRef<HTMLDivElement>(null);
@@ -72,6 +81,34 @@ export const CleanSerialConsole: React.FC<CleanSerialConsoleProps> = ({
       setTimeout(() => setErrorCopied(false), 2500);
     }
   };
+
+  const handleKillOldConnections = async () => {
+    setIsKillingConnections(true);
+    try {
+      await serialService.forceResetAllConnections();
+      setKillSuccess(true);
+      onUpdateConfig(device.id, { error: undefined, status: 'disconnected' });
+      setTimeout(() => setKillSuccess(false), 3000);
+    } catch (err) {
+      console.warn('Kill connections error:', err);
+    } finally {
+      setIsKillingConnections(false);
+    }
+  };
+
+  const handleCopyScreenCommand = async () => {
+    await copyToClipboard('killall screen');
+    setScreenCmdCopied(true);
+    setTimeout(() => setScreenCmdCopied(false), 2500);
+  };
+
+  const isPortLockError = Boolean(
+    device.error &&
+      (device.error.toLowerCase().includes('locked') ||
+        device.error.toLowerCase().includes('screen') ||
+        device.error.toLowerCase().includes('busy') ||
+        device.error.toLowerCase().includes('already open'))
+  );
 
   const hasWebSerial = isWebSerialSupported();
   const isIframe = isRunningInIframe();
@@ -270,6 +307,18 @@ export const CleanSerialConsole: React.FC<CleanSerialConsoleProps> = ({
 
           <div className="h-4 w-px bg-slate-800 mx-0.5 hidden sm:block" />
 
+          {/* Kill Old Connections Toolbar Button */}
+          <button
+            type="button"
+            onClick={handleKillOldConnections}
+            disabled={isKillingConnections}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-300 border border-slate-700 text-xs transition active:scale-95"
+            title="Force kill old serial connections and release locks"
+          >
+            <PowerOff className={`w-3.5 h-3.5 ${isKillingConnections ? 'animate-spin text-amber-400' : 'text-amber-400'}`} />
+            <span className="hidden sm:inline">{killSuccess ? 'Reset!' : 'Kill Old Connections'}</span>
+          </button>
+
           {/* Quick Utility Icons */}
           <button
             onClick={() => setShowTimestamps(!showTimestamps)}
@@ -330,7 +379,7 @@ export const CleanSerialConsole: React.FC<CleanSerialConsoleProps> = ({
         </div>
       </header>
 
-      {/* Error Notification Bar with Click-to-Copy */}
+      {/* Error Notification Bar with Click-to-Copy and Port Kill Actions */}
       {device.error && (
         <div className="bg-rose-950/95 border-b border-rose-800/80 px-4 py-2.5 text-xs text-rose-200 flex flex-wrap items-center justify-between gap-3 shadow-md shrink-0">
           <div className="flex items-center gap-2 flex-1 min-w-[280px]">
@@ -347,6 +396,53 @@ export const CleanSerialConsole: React.FC<CleanSerialConsoleProps> = ({
             />
           </div>
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            {/* Kill Old Connections Action Button */}
+            <button
+              type="button"
+              onClick={handleKillOldConnections}
+              disabled={isKillingConnections}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-white border border-amber-400/80 text-xs font-semibold transition shadow-sm active:scale-95 disabled:opacity-50"
+              title="Force release WebSerial locks and kill old browser connections"
+            >
+              <PowerOff className={`w-3.5 h-3.5 ${isKillingConnections ? 'animate-spin' : ''}`} />
+              <span>{isKillingConnections ? 'Killing...' : killSuccess ? 'Killed & Reset!' : 'Kill Old Connections'}</span>
+            </button>
+
+            {/* Quick Copy 'killall screen' button if screen or port lock detected */}
+            {isPortLockError && (
+              <button
+                type="button"
+                onClick={handleCopyScreenCommand}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-xs font-semibold transition shadow-sm active:scale-95"
+                title="Copy 'killall screen' terminal command for macOS"
+              >
+                {screenCmdCopied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-emerald-300">Copied killall screen!</span>
+                  </>
+                ) : (
+                  <>
+                    <Terminal className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Copy killall screen</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* Troubleshoot / Help Button */}
+            {isPortLockError && (
+              <button
+                type="button"
+                onClick={() => setShowTroubleshootModal(true)}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs transition active:scale-95"
+                title="Open Serial Port Lock Troubleshooter & Terminal Guides"
+              >
+                <HelpCircle className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Fix Guide</span>
+              </button>
+            )}
+
             {/* Click to Copy Error Button */}
             <button
               type="button"
@@ -357,12 +453,12 @@ export const CleanSerialConsole: React.FC<CleanSerialConsoleProps> = ({
               {errorCopied ? (
                 <>
                   <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-300 font-medium">Copied to Clipboard!</span>
+                  <span className="text-emerald-300 font-medium">Copied!</span>
                 </>
               ) : (
                 <>
                   <Copy className="w-3.5 h-3.5" />
-                  <span>Click to Copy Error</span>
+                  <span>Copy Error</span>
                 </>
               )}
             </button>
@@ -559,6 +655,17 @@ export const CleanSerialConsole: React.FC<CleanSerialConsoleProps> = ({
           </button>
         </form>
       </footer>
+
+      {/* Port Lock Troubleshooter & Terminal Command Helper Modal */}
+      <PortLockTroubleshootModal
+        isOpen={showTroubleshootModal}
+        onClose={() => setShowTroubleshootModal(false)}
+        onResetComplete={() => {
+          onUpdateConfig(device.id, { error: undefined, status: 'disconnected' });
+          setKillSuccess(true);
+          setTimeout(() => setKillSuccess(false), 3000);
+        }}
+      />
     </div>
   );
 };
